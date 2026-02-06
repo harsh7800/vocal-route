@@ -15,7 +15,7 @@ export function Sidebar() {
       const pathname = usePathname();
 
       return (
-            <aside className="w-64 flex-shrink-0 bg-white dark:bg-[#1a1a1a] border-r border-neutral-200 dark:border-neutral-800 flex flex-col sticky top-0 h-screen z-20">
+            <aside className="w-64 flex-shrink-0 bg-white dark:bg-[#1a1a1a] border-r border-neutral-200 dark:border-neutral-800 flex flex-col sticky top-0 h-screen z-20 font-sans">
                   <div className="p-6 flex items-center gap-3">
                         <div className="w-8 h-8 bg-[#1a1a1a] dark:bg-white rounded flex items-center justify-center">
                               <span className="material-symbols-outlined text-white dark:text-[#1a1a1a] text-xl font-variation-fill">dataset</span>
