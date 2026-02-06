@@ -1,7 +1,5 @@
 'use client';
 
-import React from 'react';
-
 interface VoiceOverlayProps {
   isListening: boolean;
   transcript?: string;
@@ -27,6 +25,7 @@ export function VoiceOverlay({ isListening, transcript, onClose }: VoiceOverlayP
                                 </p>
                           </div>
                           <button
+                                type='button'
                                 onClick={onClose}
                                 className="text-neutral-400 hover:text-[#1a1a1a] dark:hover:text-white transition-colors"
                           >
@@ -38,7 +37,7 @@ export function VoiceOverlay({ isListening, transcript, onClose }: VoiceOverlayP
                     <div className="flex items-center gap-1.5 h-8 px-2 justify-center">
                           {[...Array(15)].map((_, i) => (
                                 <div
-                                      key={i}
+                                      key={i.toString()}
                                       className="w-1 bg-[#1a1a1a] dark:bg-white rounded-full animate-waveform-bar"
                                       style={{
                                             height: `${Math.random() * 100}%`,

@@ -9,11 +9,11 @@ export default function Dashboard() {
           <p className="text-neutral-500 text-sm mt-1">Real-time metrics for your active campaigns.</p>
         </div>
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg text-sm font-semibold hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors bg-white dark:bg-transparent">
+          <button type='button' className="flex items-center gap-2 px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg text-sm font-semibold hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors bg-white dark:bg-transparent">
             <span className="material-symbols-outlined text-lg font-variation-fill">download</span>
             Export CSV
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] text-white dark:bg-white dark:text-[#1a1a1a] rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">
+          <button type='button' className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] text-white dark:bg-white dark:text-[#1a1a1a] rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">
             <span className="material-symbols-outlined text-lg">add</span>
             New Report
           </button>
