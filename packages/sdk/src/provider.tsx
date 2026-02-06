@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AudioRecorder } from './audio/recorder';
 import { routeRegistry } from './registry/routeMap';
 import type { VocalIntent } from './types';
+import { VocalRouteClient } from './client';
 
 type ContextType = {
       isListening: boolean;
@@ -20,29 +21,42 @@ export function VocalRouteProvider({ children }: { children: React.ReactNode }) 
       const [transcript, setTranscript] = React.useState('');
       const recorderRef = useRef(new AudioRecorder());
       const router = useRouter();
+      const clientRef = useRef<VocalRouteClient | null>(null);
 
       const startListening = async () => {
-            setIsListening(true);
-            setTranscript('');
-            await recorderRef.current.start();
-      };
+           console.log('🎤 startListening');
+
+           setIsListening(true);
+           setTranscript('');
+
+           if (!clientRef.current) {
+                 clientRef.current = new VocalRouteClient();
+
+                 clientRef.current.onMessage = (intent: VocalIntent) => {
+                       console.log('🧠 Intent from server:', intent);
+
+                       setTranscript(`Command: ${intent.target}`);
+
+                       const route = routeRegistry[intent.target];
+                       if (route) router.push(route);
+                 };
+
+                 clientRef.current.connect();
+           }
+
+           await recorderRef.current.start();
+     };
+
 
       const stopListening = async () => {
+            console.log('🛑 stopListening');
+
             setIsListening(false);
-            const _audio = await recorderRef.current.stop();
+            await recorderRef.current.stop();
 
-            // 🔴 Fake intent for now
-            setTranscript('Take me to invoices');
-
-            const intent: VocalIntent = {
-                  intent: 'navigate',
-                  target: 'invoices',
-                  confidence: 0.95,
-            };
-
-            const route = routeRegistry[intent.target];
-            if (route) router.push(route);
+            clientRef.current?.send('audio-stop');
       };
+
 
       return (
             <VocalRouteContext.Provider value={{ isListening, transcript, startListening, stopListening }}>

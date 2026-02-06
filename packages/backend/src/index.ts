@@ -1,15 +1,29 @@
 import { WebSocketServer } from "ws";
 
-const wss = new WebSocketServer({ port: 8080 });
+const wss = new WebSocketServer({ port: 3001 });
 
-wss.on("connection", (ws) => {
-  console.log("Client connected");
+console.log("🔊 VocalRoute WS server running on ws://localhost:3001");
 
-  ws.on("message", (data) => {
-    console.log("received: %s", data);
+wss.on("connection", (socket) => {
+  console.log("🟢 Client connected");
+
+  socket.on("message", (data) => {
+    const msg = JSON.parse(data.toString());
+
+    if (msg.type === "audio-stop") {
+      console.log("🛑 Audio stopped, sending intent");
+
+      socket.send(
+        JSON.stringify({
+          intent: "navigate",
+          target: "invoices",
+          confidence: 0.95,
+        }),
+      );
+    }
   });
 
-  ws.send("welcome");
+  socket.on("close", () => {
+    console.log("🔴 Client disconnected");
+  });
 });
-
-console.log("WebSocket server is running on ws://localhost:8080");
