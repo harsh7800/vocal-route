@@ -15,8 +15,5 @@
   "devDependencies": {
     "@biomejs/biome": "2.2.0",
     "typescript": "^5"
-  },
-  "dependencies": {
-    "vocalroute-sdk": "*"
   }
 }

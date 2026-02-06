@@ -20,7 +20,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "vocalroute-sdk": ["../../packages/sdk/src/index.ts"]
     }
   },
   "include": [

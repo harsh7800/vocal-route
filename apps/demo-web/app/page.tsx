@@ -1,4 +1,4 @@
-import { VocalRouteButton } from '@/components/VocalRouteButton';
+import { VocalRouteButton } from "../components/VocalRouteButton";
 
 export default function Home() {
   return (

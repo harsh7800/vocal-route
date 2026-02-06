@@ -1,5 +1,5 @@
-[00:00:02.476] Server  LOG     ✓ Ready in 1727ms
-[00:00:09.167] Browser ERROR   A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+[00:00:01.999] Server  LOG     ✓ Ready in 1416ms
+[00:00:04.827] Browser ERROR   A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
 
 - A server/client branch `if (typeof window !== 'undefined')`.
 - Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
@@ -17,7 +17,7 @@ It can also happen if the client has a browser extension installed which messes 
         <ReplaySsrOnlyErrors>
         <DevRootHTTPAccessFallbackBoundary>
           <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
-            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+            <HTTPAccessFallbackErrorBoundary pathname="/invoices" notFound={<NotAllowedRootHTTPFallbackError>} ...>
               <RedirectBoundary>
                 <RedirectErrorBoundary router={{...}}>
                   <Head>
@@ -34,43 +34,4 @@ It can also happen if the client has a browser extension installed which messes 
                         >
                   ...
 
-[00:00:22.994] Server  ERROR   ⨯ Error: The default export is not a React Component in "/invoices/page"
-[00:00:23.284] Server  ERROR   ⨯ Error: The default export is not a React Component in "/invoices/page"
-[00:00:24.073] Server  ERROR   ⨯ Error: The default export is not a React Component in "/invoices/page"
-[00:00:24.337] Server  ERROR   ⨯ Error: The default export is not a React Component in "/invoices/page"
-[00:00:24.575] Browser ERROR   uncaughtError: Error: The default export is not a React Component in "/invoices/page"
-[00:02:02.569] Browser ERROR   A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
-
-- A server/client branch `if (typeof window !== 'undefined')`.
-- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
-- Date formatting in a user's locale which doesn't match the server.
-- External changing data without sending a snapshot of it along with the HTML.
-- Invalid HTML tag nesting.
-
-It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
-
-%s%s https://react.dev/link/hydration-mismatch 
-
-  ...
-    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
-      <AppDevOverlayErrorBoundary globalError={[...]}>
-        <ReplaySsrOnlyErrors>
-        <DevRootHTTPAccessFallbackBoundary>
-          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
-            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
-              <RedirectBoundary>
-                <RedirectErrorBoundary router={{...}}>
-                  <Head>
-                  <__next_root_layout_boundary__>
-                    <SegmentViewNode type="layout" pagePath="/apps/demo...">
-                      <SegmentTrieNode>
-                      <link>
-                      <script>
-                      <script>
-                      <RootLayout>
-                        <html
-                          lang="en"
--                         className="hydrated"
-                        >
-                  ...
-
+[00:01:19.820] Server  LOG     ✓ Compiled in 57ms
