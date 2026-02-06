@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useRef, useState, useCallback, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import NextTopLoader from 'nextjs-toploader';
 import { SpeechTranscriber } from './audio/transcriber';
 import { VolumeVisualizer } from './audio/visualizer';
 import { routeRegistry, getRoutePath } from './registry/routeMap';
@@ -133,6 +134,7 @@ export function VocalRouteProvider({
 
       return (
             <VocalRouteContext.Provider value={{ isListening, isProcessing, transcript, confidence, volume, error, startListening, stopListening }}>
+                  <NextTopLoader showSpinner={false} color="#22d3ee" />
                   {children}
             </VocalRouteContext.Provider>
       );
