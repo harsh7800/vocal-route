@@ -1,0 +1,52 @@
+export class VocalRouteClient {
+  private ws?: WebSocket;
+  private isOpen = false;
+
+  onMessage?: (data: any) => void;
+
+  constructor(private config: { wsUrl?: string } = {}) {}
+
+  connect(): Promise<void> {
+    console.log("🔵 Attempting WS connection...");
+
+    return new Promise((resolve, reject) => {
+      this.ws = new WebSocket(this.config.wsUrl || "ws://localhost:3001");
+
+      this.ws.onopen = () => {
+        this.isOpen = true;
+        console.log("🟢 WS connected (client)");
+        resolve();
+      };
+
+      this.ws.onerror = (err) => {
+        console.error("🔴 WS error", err);
+        reject(err);
+      };
+
+      this.ws.onclose = () => {
+        this.isOpen = false;
+        console.log("🟡 WS closed");
+      };
+
+      this.ws.onmessage = (event) => {
+        console.log("📩 WS message received:", event.data);
+        const data = JSON.parse(event.data);
+        this.onMessage?.(data);
+      };
+    });
+  }
+
+  send(type: string, payload?: any) {
+    if (!this.ws || !this.isOpen) {
+      console.warn("⚠️ WS not open, message skipped:", type);
+      return;
+    }
+
+    console.log("➡️ WS send:", type);
+    this.ws.send(JSON.stringify({ type, payload }));
+  }
+
+  disconnect() {
+    this.ws?.close();
+  }
+}
