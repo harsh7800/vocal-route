@@ -4,35 +4,39 @@ export class VocalRouteClient {
 
   onMessage?: (data: any) => void;
 
-  connect() {
+  connect(): Promise<void> {
     console.log("🔵 Attempting WS connection...");
 
-    this.ws = new WebSocket("ws://localhost:3001");
+    return new Promise((resolve, reject) => {
+      this.ws = new WebSocket("ws://localhost:3001");
 
-    this.ws.onopen = () => {
-      this.isOpen = true;
-      console.log("🟢 WS connected (client)");
-    };
+      this.ws.onopen = () => {
+        this.isOpen = true;
+        console.log("🟢 WS connected (client)");
+        resolve();
+      };
 
-    this.ws.onerror = (err) => {
-      console.error("🔴 WS error", err);
-    };
+      this.ws.onerror = (err) => {
+        console.error("🔴 WS error", err);
+        reject(err);
+      };
 
-    this.ws.onclose = () => {
-      this.isOpen = false;
-      console.log("🟡 WS closed");
-    };
+      this.ws.onclose = () => {
+        this.isOpen = false;
+        console.log("🟡 WS closed");
+      };
 
-    this.ws.onmessage = (event) => {
-      console.log("📩 WS message received:", event.data);
-      const data = JSON.parse(event.data);
-      this.onMessage?.(data);
-    };
+      this.ws.onmessage = (event) => {
+        console.log("📩 WS message received:", event.data);
+        const data = JSON.parse(event.data);
+        this.onMessage?.(data);
+      };
+    });
   }
 
   send(type: string, payload?: any) {
     if (!this.ws || !this.isOpen) {
-      console.warn("⚠️ WS not open yet, message skipped:", type);
+      console.warn("⚠️ WS not open, message skipped:", type);
       return;
     }
 

@@ -1,29 +1,24 @@
 export class AudioRecorder {
   private mediaRecorder?: MediaRecorder;
-  private chunks: Blob[] = [];
 
-  async start() {
+  async start(onChunk: (chunk: Blob) => void) {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    this.mediaRecorder = new MediaRecorder(stream);
+
+    this.mediaRecorder = new MediaRecorder(stream, {
+      mimeType: "audio/webm",
+    });
 
     this.mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) this.chunks.push(e.data);
+      if (e.data.size > 0) {
+        onChunk(e.data);
+      }
     };
 
-    this.mediaRecorder.start();
+    // emit chunks every 250ms
+    this.mediaRecorder.start(250);
   }
 
-  stop(): Promise<Blob> {
-    return new Promise((resolve) => {
-      if (!this.mediaRecorder) return;
-
-      this.mediaRecorder.onstop = () => {
-        const blob = new Blob(this.chunks, { type: "audio/webm" });
-        this.chunks = [];
-        resolve(blob);
-      };
-
-      this.mediaRecorder.stop();
-    });
+  stop() {
+    this.mediaRecorder?.stop();
   }
 }

@@ -22,40 +22,56 @@ export function VocalRouteProvider({ children }: { children: React.ReactNode }) 
       const recorderRef = useRef(new AudioRecorder());
       const router = useRouter();
       const clientRef = useRef<VocalRouteClient | null>(null);
+      const isStreamingRef = useRef(false);
 
       const startListening = async () => {
-           console.log('🎤 startListening');
+            console.log('🎤 startListening');
 
-           setIsListening(true);
-           setTranscript('');
+            setIsListening(true);
+            setTranscript('');
 
-           if (!clientRef.current) {
-                 clientRef.current = new VocalRouteClient();
+            if (!clientRef.current) {
+                  clientRef.current = new VocalRouteClient();
 
-                 clientRef.current.onMessage = (intent: VocalIntent) => {
-                       console.log('🧠 Intent from server:', intent);
+                  clientRef.current.onMessage = (intent: VocalIntent) => {
+                        console.log('🧠 Intent from server:', intent);
+                        const route = routeRegistry[intent.target];
+                        if (route) router.push(route);
+                  };
 
-                       setTranscript(`Command: ${intent.target}`);
+                  await clientRef.current.connect(); // ✅ wait here
+            }
 
-                       const route = routeRegistry[intent.target];
-                       if (route) router.push(route);
-                 };
+            clientRef.current.send('audio-start');
 
-                 clientRef.current.connect();
-           }
+            isStreamingRef.current = true;
 
-           await recorderRef.current.start();
-     };
+            await recorderRef.current.start(async (chunk) => {
+                  if (!isStreamingRef.current) return;
+
+                  const buffer = await chunk.arrayBuffer();
+                  const base64 = btoa(
+                        String.fromCharCode(...new Uint8Array(buffer)),
+                  );
+
+                  clientRef.current?.send('audio-chunk', base64);
+            });
+      };
+
+
 
 
       const stopListening = async () => {
             console.log('🛑 stopListening');
 
             setIsListening(false);
-            await recorderRef.current.stop();
 
+            isStreamingRef.current = false;
+            recorderRef.current.stop();
             clientRef.current?.send('audio-stop');
+
       };
+
 
 
       return (
