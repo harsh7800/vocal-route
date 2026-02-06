@@ -1,83 +1,128 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useRef } from 'react';
+import { createContext, useContext, useRef, useState, useCallback, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { AudioRecorder } from './audio/recorder';
-import { routeRegistry } from './registry/routeMap';
-import type { VocalIntent } from './types';
-import { VocalRouteClient } from './client';
+import { SpeechTranscriber } from './audio/transcriber';
+import { VolumeVisualizer } from './audio/visualizer';
+import { routeRegistry, getRoutePath } from './registry/routeMap';
+import type { VocalIntent, RouteDefinition } from './types';
 
-type ContextType = {
+export type ContextType = {
       isListening: boolean;
       transcript: string;
+      confidence: number;
+      volume: number;
+      error: string | null;
       startListening: () => Promise<void>;
       stopListening: () => Promise<void>;
 };
 
 const VocalRouteContext = createContext<ContextType | null>(null);
 
-export function VocalRouteProvider({ children }: { children: React.ReactNode }) {
-      const [isListening, setIsListening] = React.useState(false);
-      const [transcript, setTranscript] = React.useState('');
-      const recorderRef = useRef(new AudioRecorder());
+interface ProviderProps {
+      children: ReactNode;
+      routes?: RouteDefinition[];
+}
+
+export function VocalRouteProvider({
+      children,
+      routes = routeRegistry
+}: ProviderProps) {
+      const [isListening, setIsListening] = useState(false);
+      const [transcript, setTranscript] = useState('');
+      const [confidence, setConfidence] = useState(1);
+      const [volume, setVolume] = useState(0);
+      const [error, setError] = useState<string | null>(null);
+
+      const transcriberRef = useRef<SpeechTranscriber | null>(null);
+      const visualizerRef = useRef<VolumeVisualizer | null>(null);
       const router = useRouter();
-      const clientRef = useRef<VocalRouteClient | null>(null);
-      const isStreamingRef = useRef(false);
+
+      const processIntent = useCallback(async (text: string) => {
+            try {
+                  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/intent";
+
+                  const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                              text,
+                              routes: routes.map(r => ({ id: r.id, aliases: r.aliases }))
+                        })
+                  });
+
+                  if (!response.ok) throw new Error("Failed to process intent");
+
+                  const intent: VocalIntent = await response.json();
+                  console.log('🧠 Intent from server:', intent);
+
+                  setTranscript(intent.transcript);
+                  setConfidence(intent.confidence);
+
+                  if (intent.intent === 'navigate' && intent.target && intent.confidence > 0.6) {
+                        const path = getRoutePath(intent.target);
+                        if (path) {
+                              router.push(path);
+                              setError(null);
+                              // Auto-close after successful navigation
+                              setTimeout(() => {
+                                    setIsListening(false);
+                              }, 500);
+                        } else {
+                              setError(`Route not found for target: ${intent.target}`);
+                        }
+                  } else if (intent.confidence <= 0.6) {
+                        setError("I'm not sure what you meant. Could you try again?");
+                  } else {
+                        setError("Sorry, I didn't recognize that command.");
+                  }
+            } catch (err) {
+                  console.error("❌ API Error:", err);
+                  setError("Something went wrong. Please try again.");
+            }
+      }, [routes, router]);
 
       const startListening = async () => {
             console.log('🎤 startListening');
-
             setIsListening(true);
             setTranscript('');
+            setConfidence(1);
+            setVolume(0);
+            setError(null);
 
-            if (!clientRef.current) {
-                  clientRef.current = new VocalRouteClient({
-                        wsUrl: process.env.NEXT_PUBLIC_WS_URL,
-                  });
-
-                  clientRef.current.onMessage = (intent: VocalIntent) => {
-                        console.log('🧠 Intent from server:', intent);
-                        const route = routeRegistry[intent.target];
-                        if (route) router.push(route);
-                  };
-
-                  await clientRef.current.connect(); // ✅ wait here
+            if (!transcriberRef.current) {
+                  transcriberRef.current = new SpeechTranscriber();
             }
 
-            clientRef.current.send('audio-start');
+            if (!visualizerRef.current) {
+                  visualizerRef.current = new VolumeVisualizer();
+            }
 
-            isStreamingRef.current = true;
+            // Start sound visualization
+            visualizerRef.current.start((v) => setVolume(v));
 
-            await recorderRef.current.start(async (chunk) => {
-                  if (!isStreamingRef.current) return;
+            // Start transcription
+            transcriberRef.current.start((text: string, isFinal: boolean) => {
+                  setTranscript(text);
+                  if (isFinal) {
+                        transcriberRef.current?.stop();
+                        visualizerRef.current?.stop();
 
-                  const buffer = await chunk.arrayBuffer();
-                  const base64 = btoa(
-                        String.fromCharCode(...new Uint8Array(buffer)),
-                  );
-
-                  clientRef.current?.send('audio-chunk', base64);
+                        // Send text to API for intent extraction
+                        processIntent(text);
+                  }
             });
       };
 
-
-
-
       const stopListening = async () => {
             console.log('🛑 stopListening');
-
             setIsListening(false);
-
-            isStreamingRef.current = false;
-            recorderRef.current.stop();
-            clientRef.current?.send('audio-stop');
-
+            transcriberRef.current?.stop();
+            visualizerRef.current?.stop();
       };
 
-
-
       return (
-            <VocalRouteContext.Provider value={{ isListening, transcript, startListening, stopListening }}>
+            <VocalRouteContext.Provider value={{ isListening, transcript, confidence, volume, error, startListening, stopListening }}>
                   {children}
             </VocalRouteContext.Provider>
       );
