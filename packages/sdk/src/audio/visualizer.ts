@@ -31,17 +31,17 @@ export class VolumeVisualizer {
       this.isAnalyzing = true;
 
       const analyze = () => {
-        const { analyser, dataArray } = this;
-        if (!this.isAnalyzing || !analyser || !dataArray) return;
+        const { analyser } = this;
+        if (!this.isAnalyzing || !analyser || !this.dataArray) return;
 
-        analyser.getByteFrequencyData(dataArray as any);
+        analyser.getByteFrequencyData(this.dataArray as any);
 
         // Calculate average volume
         let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
+        for (let i = 0; i < this.dataArray.length; i++) {
+          sum += this.dataArray[i];
         }
-        const average = sum / dataArray.length;
+        const average = sum / this.dataArray.length;
 
         // Normalize to 0-1
         onVolume(average / 128);
@@ -62,7 +62,9 @@ export class VolumeVisualizer {
       this.audioContext.close().catch(console.error);
     }
     if (this.stream) {
-      this.stream.getTracks().forEach((track) => track.stop());
+        this.stream.getTracks().forEach(track => {
+            track.stop();
+        });
     }
   }
 }
