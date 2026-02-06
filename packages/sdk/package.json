@@ -9,7 +9,8 @@
   ],
   "scripts": {
     "build": "tsc",
-    "dev": "tsc -w"
+    "dev": "tsc -w",
+    "scan": "tsx src/build/compile.ts"
   },
   "dependencies": {
     "nextjs-toploader": "^3.9.17",

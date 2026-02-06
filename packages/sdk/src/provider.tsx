@@ -1,12 +1,12 @@
 "use client";
 
-import { createContext, useContext, useRef, useState, useCallback, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { createContext, useContext, useRef, useState, useCallback, type ReactNode, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import NextTopLoader from 'nextjs-toploader';
 import { SpeechTranscriber } from './audio/transcriber';
 import { VolumeVisualizer } from './audio/visualizer';
-import { routeRegistry, getRoutePath } from './registry/routeMap';
-import type { VocalIntent, RouteDefinition } from './types';
+import { staticRegistry } from './generated/registry';
+import type { VocalIntent, RouteRegistry } from './types';
 
 export type ContextType = {
       isListening: boolean;
@@ -15,6 +15,7 @@ export type ContextType = {
       confidence: number;
       volume: number;
       error: string | null;
+      registry: RouteRegistry;
       startListening: () => Promise<void>;
       stopListening: () => Promise<void>;
 };
@@ -23,12 +24,12 @@ const VocalRouteContext = createContext<ContextType | null>(null);
 
 interface ProviderProps {
       children: ReactNode;
-      routes?: RouteDefinition[];
+      routes?: RouteRegistry;
 }
 
 export function VocalRouteProvider({ 
       children,
-      routes = routeRegistry
+      routes = staticRegistry as unknown as RouteRegistry
 }: ProviderProps) {
       const [isListening, setIsListening] = useState(false);
       const [isProcessing, setIsProcessing] = useState(false);
@@ -37,9 +38,45 @@ export function VocalRouteProvider({
       const [volume, setVolume] = useState(0);
       const [error, setError] = useState<string | null>(null);
 
+      const [registry, setRegistry] = useState<RouteRegistry>(routes);
+
       const transcriberRef = useRef<SpeechTranscriber | null>(null);
       const visualizerRef = useRef<VolumeVisualizer | null>(null);
       const router = useRouter();
+      const pathname = usePathname();
+
+      useEffect(() => {
+            if (typeof window === 'undefined') return;
+
+            const observeRoute = (path: string) => {
+                  setRegistry(prev => {
+                        return prev.map(route => {
+                              if (route.path === path || (route.params && path.startsWith(route.path.split('[')[0]))) {
+                                    const newConfidence = Math.min(0.95, (route.observed ? route.confidence + 0.05 : route.confidence + 0.2));
+                                    return {
+                                          ...route,
+                                          confidence: newConfidence,
+                                          observed: true
+                                    };
+                              }
+                              return route;
+                        });
+                  });
+            };
+
+            observeRoute(pathname);
+
+            const originalPushState = window.history.pushState;
+            window.history.pushState = function (...args) {
+                  const url = args[2];
+                  if (typeof url === 'string') observeRoute(url);
+                  return originalPushState.apply(this, args);
+            };
+
+            return () => {
+                  window.history.pushState = originalPushState;
+            };
+      }, [pathname]);
 
       const processIntent = useCallback(async (text: string) => {
             setIsProcessing(true);
@@ -51,7 +88,12 @@ export function VocalRouteProvider({
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                               text,
-                              routes: routes.map(r => ({ id: r.id, aliases: r.aliases }))
+                              routes: registry.map(r => ({
+                                    id: r.path,
+                                    aliases: r.intents,
+                                    title: r.title,
+                                    params: Object.keys(r.params || {})
+                              }))
                         })
                   });
 
@@ -63,36 +105,48 @@ export function VocalRouteProvider({
                   setTranscript(intent.transcript);
                   setConfidence(intent.confidence);
 
-                  if (intent.intent === 'navigate' && intent.target && intent.confidence > 0.6) {
-                        const path = getRoutePath(intent.target);
-                        if (path) {
-                              router.push(path);
+                  if (intent.intent === 'navigate' && intent.target && intent.confidence >= 0.75) {
+                        const targetRoute = registry.find(r => r.path === intent.target);
+
+                        if (targetRoute) {
+                              // Handle parameter injection
+                              let finalPath = targetRoute.path;
+                              if (intent.params) {
+                                    for (const [key, value] of Object.entries(intent.params)) {
+                                          finalPath = finalPath.replace(`[${key}]`, value);
+                                    }
+                              }
+
+                              router.push(finalPath);
                               setError(null);
-                              // Auto-close after successful navigation
                               setTimeout(() => {
                                     setIsListening(false);
                                     setIsProcessing(false);
                               }, 800);
-                        } else {
-                              setError(`Route not found for target: ${intent.target}`);
-                              setIsProcessing(false);
+                              return;
                         }
-                  } else if (intent.confidence <= 0.6) {
-                        setError("I'm not sure what you meant. Could you try again?");
-                        setIsProcessing(false);
-                  } else {
-                        setError("Sorry, I didn't recognize that command.");
-                        setIsProcessing(false);
                   }
+
+                  if (intent.confidence < 0.75) {
+                        setError("I'm not exactly sure what you mean. Could you rephrase that?");
+                  } else {
+                        setError("Sorry, I couldn't find a matching page for that command.");
+                  }
+                  setIsProcessing(false);
             } catch (err) {
                   console.error("❌ API Error:", err);
                   setError("Something went wrong. Please try again.");
                   setIsProcessing(false);
             }
-      }, [routes, router]);
+      }, [registry, router]);
 
       const startListening = async () => {
-            console.log('🎤 startListening');
+            if (!registry || registry.length === 0) {
+                  console.warn("🔊 VocalRoute: No routes discovered. Voice navigation is disabled.");
+                  setError("Voice navigation is currently unavailable.");
+                  return;
+            }
+
             setIsListening(true);
             setIsProcessing(false);
             setTranscript('');
@@ -108,24 +162,19 @@ export function VocalRouteProvider({
                   visualizerRef.current = new VolumeVisualizer();
             }
 
-            // Start sound visualization
             visualizerRef.current.start((v) => setVolume(v));
 
-            // Start transcription
             transcriberRef.current.start((text: string, isFinal: boolean) => {
                   setTranscript(text);
                   if (isFinal) {
                         transcriberRef.current?.stop();
                         visualizerRef.current?.stop();
-
-                        // Send text to API for intent extraction
                         processIntent(text);
                   }
             });
       };
 
       const stopListening = async () => {
-            console.log('🛑 stopListening');
             setIsListening(false);
             setIsProcessing(false);
             transcriberRef.current?.stop();
@@ -133,7 +182,17 @@ export function VocalRouteProvider({
       };
 
       return (
-            <VocalRouteContext.Provider value={{ isListening, isProcessing, transcript, confidence, volume, error, startListening, stopListening }}>
+            <VocalRouteContext.Provider value={{
+                  isListening,
+                  isProcessing,
+                  transcript,
+                  confidence,
+                  volume,
+                  error,
+                  registry,
+                  startListening,
+                  stopListening
+            }}>
                   <NextTopLoader showSpinner={false} color="#22d3ee" />
                   {children}
             </VocalRouteContext.Provider>
