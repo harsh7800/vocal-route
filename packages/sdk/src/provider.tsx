@@ -31,7 +31,9 @@ export function VocalRouteProvider({ children }: { children: React.ReactNode }) 
             setTranscript('');
 
             if (!clientRef.current) {
-                  clientRef.current = new VocalRouteClient();
+                  clientRef.current = new VocalRouteClient({
+                        wsUrl: process.env.NEXT_PUBLIC_WS_URL,
+                  });
 
                   clientRef.current.onMessage = (intent: VocalIntent) => {
                         console.log('🧠 Intent from server:', intent);

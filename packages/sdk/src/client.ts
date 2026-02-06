@@ -4,11 +4,13 @@ export class VocalRouteClient {
 
   onMessage?: (data: any) => void;
 
+  constructor(private config: { wsUrl?: string } = {}) {}
+
   connect(): Promise<void> {
     console.log("🔵 Attempting WS connection...");
 
     return new Promise((resolve, reject) => {
-      this.ws = new WebSocket("ws://localhost:3001");
+      this.ws = new WebSocket(this.config.wsUrl || "ws://localhost:3001");
 
       this.ws.onopen = () => {
         this.isOpen = true;
