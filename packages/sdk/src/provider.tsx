@@ -9,6 +9,7 @@ import type { VocalIntent, RouteDefinition } from './types';
 
 export type ContextType = {
       isListening: boolean;
+      isProcessing: boolean;
       transcript: string;
       confidence: number;
       volume: number;
@@ -24,11 +25,12 @@ interface ProviderProps {
       routes?: RouteDefinition[];
 }
 
-export function VocalRouteProvider({
+export function VocalRouteProvider({ 
       children,
       routes = routeRegistry
 }: ProviderProps) {
       const [isListening, setIsListening] = useState(false);
+      const [isProcessing, setIsProcessing] = useState(false);
       const [transcript, setTranscript] = useState('');
       const [confidence, setConfidence] = useState(1);
       const [volume, setVolume] = useState(0);
@@ -39,6 +41,7 @@ export function VocalRouteProvider({
       const router = useRouter();
 
       const processIntent = useCallback(async (text: string) => {
+            setIsProcessing(true);
             try {
                   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/intent";
 
@@ -67,24 +70,30 @@ export function VocalRouteProvider({
                               // Auto-close after successful navigation
                               setTimeout(() => {
                                     setIsListening(false);
-                              }, 500);
+                                    setIsProcessing(false);
+                              }, 800);
                         } else {
                               setError(`Route not found for target: ${intent.target}`);
+                              setIsProcessing(false);
                         }
                   } else if (intent.confidence <= 0.6) {
                         setError("I'm not sure what you meant. Could you try again?");
+                        setIsProcessing(false);
                   } else {
                         setError("Sorry, I didn't recognize that command.");
+                        setIsProcessing(false);
                   }
             } catch (err) {
                   console.error("❌ API Error:", err);
                   setError("Something went wrong. Please try again.");
+                  setIsProcessing(false);
             }
       }, [routes, router]);
 
       const startListening = async () => {
             console.log('🎤 startListening');
             setIsListening(true);
+            setIsProcessing(false);
             setTranscript('');
             setConfidence(1);
             setVolume(0);
@@ -117,12 +126,13 @@ export function VocalRouteProvider({
       const stopListening = async () => {
             console.log('🛑 stopListening');
             setIsListening(false);
+            setIsProcessing(false);
             transcriberRef.current?.stop();
             visualizerRef.current?.stop();
       };
 
       return (
-            <VocalRouteContext.Provider value={{ isListening, transcript, confidence, volume, error, startListening, stopListening }}>
+            <VocalRouteContext.Provider value={{ isListening, isProcessing, transcript, confidence, volume, error, startListening, stopListening }}>
                   {children}
             </VocalRouteContext.Provider>
       );

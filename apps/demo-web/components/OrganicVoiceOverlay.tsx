@@ -2,6 +2,7 @@
 
 interface OrganicVoiceOverlayProps {
   isListening: boolean;
+  isProcessing?: boolean;
   isSpeaking?: boolean;
   transcript?: string;
   error?: string | null;
@@ -11,17 +12,40 @@ interface OrganicVoiceOverlayProps {
   onRetry?: () => void;
 }
 
-export function OrganicVoiceOverlay({ isListening, isSpeaking, transcript, error, volume = 0, onClose, onRetry }: OrganicVoiceOverlayProps) {
-  if (!isListening && !isSpeaking) return null;
+export function OrganicVoiceOverlay({
+  isListening,
+  isProcessing = false,
+  isSpeaking = false,
+  transcript,
+  error,
+  volume = 0,
+  onClose,
+  onRetry
+}: OrganicVoiceOverlayProps) {
+  if (!isListening && !isSpeaking && !isProcessing) return null;
 
-  const statusColor = error ? 'text-red-400' : isSpeaking ? 'text-blue-200' : 'text-white';
-  const glowColor = error ? 'bg-red-500/20' : 'bg-white/20';
+  const statusColor = error
+    ? 'text-red-400'
+    : isProcessing
+      ? 'text-cyan-400'
+      : isSpeaking
+        ? 'text-blue-200'
+        : 'text-white';
+
+  const glowColor = error
+    ? 'bg-red-500/20'
+    : isProcessing
+      ? 'bg-cyan-500/30'
+      : 'bg-white/20';
 
   // Use volume to scale the blob (capped to prevent extreme scaling)
-  const scale = 1 + Math.min(volume * 1.5, 0.8);
+  // When processing, use a steady subtle pulse instead of volume
+  const scale = isProcessing
+    ? 1.1
+    : 1 + Math.min(volume * 1.5, 0.8);
 
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#1a1a1a]/80 dark:bg-black/90 backdrop-blur-2xl transition-all duration-500 font-sans">
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#1a1a1a]/80 dark:bg-black/90 backdrop-blur-2xl transition-all duration-500 font-sans text-white">
       {/* Link to Material Symbols */}
       <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&display=swap" rel="stylesheet" />
 
@@ -38,14 +62,14 @@ export function OrganicVoiceOverlay({ isListening, isSpeaking, transcript, error
       {/* Animation Container */}
       <div className="relative flex items-center justify-center w-full h-96">
         {/* Organic pulsing waveform blob */}
-        <div className="animate-pulse-blob relative">
+        <div className={`relative ${isProcessing ? 'animate-pulse' : 'animate-pulse-blob'}`}>
           {/* Abstract Glow Layer */}
-          <div className={`absolute inset-0 ${glowColor} rounded-full blur-3xl transition-colors duration-500`}
+          <div className={`absolute inset-0 ${glowColor} rounded-full blur-3xl transition-all duration-500`}
             style={{ transform: `scale(${scale * 1.5})` }}></div>
           
           {/* Main Animated SVG Blob */}
           <svg 
-            className={`transition-all duration-75 ${statusColor} drop-shadow-[0_0_30px_rgba(255,255,255,0.1)]`}
+            className={`transition-all duration-300 ${statusColor} drop-shadow-[0_0_30px_rgba(255,255,255,0.1)]`}
             style={{ transform: `scale(${scale})` }}
             height="240" 
             viewBox="0 0 200 200" 
@@ -64,14 +88,14 @@ export function OrganicVoiceOverlay({ isListening, isSpeaking, transcript, error
         </div>
 
         {/* Subtle secondary particles/waves */}
-        <div className="absolute w-48 h-48 border border-white/10 rounded-full animate-ping opacity-20"></div>
-        <div className="absolute w-64 h-64 border border-white/5 rounded-full animate-ping opacity-10 [animation-delay:1s]"></div>
+        <div className={`absolute w-48 h-48 border border-white/10 rounded-full animate-ping opacity-20 ${isProcessing ? 'border-cyan-400/30' : ''}`}></div>
+        <div className={`absolute w-64 h-64 border border-white/5 rounded-full animate-ping opacity-10 [animation-delay:1s] ${isProcessing ? 'border-cyan-400/20' : ''}`}></div>
       </div>
 
       {/* Feedback UI */}
       <div className="flex flex-col items-center gap-6 -mt-10 max-w-2xl px-8 text-center">
         <h2 className={`text-4xl font-light tracking-[0.2em] uppercase transition-all duration-300 ${statusColor}`}>
-          {error ? 'Oops' : isSpeaking ? 'Speaking' : transcript ? 'Deciphering' : 'Listening'}
+          {error ? 'Oops' : isProcessing ? 'Processing' : isSpeaking ? 'Speaking' : transcript ? 'Understood' : 'Listening'}
           {!error && <span className="animate-pulse">...</span>}
         </h2>
         
@@ -80,9 +104,18 @@ export function OrganicVoiceOverlay({ isListening, isSpeaking, transcript, error
             <p className="text-red-300 text-lg font-medium tracking-wide animate-in fade-in slide-in-from-top-2">
               {error}
             </p>
+          ) : isProcessing ? (
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-cyan-200 text-xl font-medium tracking-wide italic">
+                Thinking...
+              </p>
+              <p className="text-white/40 text-sm max-w-xs leading-relaxed">
+                Finding the best route for your request
+              </p>
+            </div>
           ) : (
               <p className="text-white text-xl font-medium tracking-wide">
-                {transcript ? `"${transcript}"` : '"Show me last month\'s conversion trends"'}
+                  {transcript ? `"${transcript}"` : '"Take me to the billing page"'}
               </p>
           )}
           <div className="h-[1px] w-8 bg-white/50 my-4"></div>
@@ -105,6 +138,12 @@ export function OrganicVoiceOverlay({ isListening, isSpeaking, transcript, error
             <span className="material-symbols-outlined group-hover:rotate-180 transition-transform duration-500">refresh</span>
             Try Again
           </button>
+        ) : isProcessing ? (
+          <div className="flex flex-col items-center gap-2">
+            <div className="size-16 rounded-full border-2 border-cyan-400/30 flex items-center justify-center text-cyan-400 animate-spin">
+              <span className="material-symbols-outlined text-3xl">sync</span>
+            </div>
+          </div>
         ) : (
           <div className="size-16 rounded-full bg-white flex items-center justify-center text-[#1a1a1a] shadow-[0_0_40px_rgba(255,255,255,0.4)] transition-transform hover:scale-110 active:scale-95">
             <span className="material-symbols-outlined text-3xl">
