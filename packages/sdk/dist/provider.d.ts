@@ -1,5 +1,7 @@
 import React from 'react';
 type ContextType = {
+    isListening: boolean;
+    transcript: string;
     startListening: () => Promise<void>;
     stopListening: () => Promise<void>;
 };

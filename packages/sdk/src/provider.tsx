@@ -7,6 +7,8 @@ import { routeRegistry } from './registry/routeMap';
 import type { VocalIntent } from './types';
 
 type ContextType = {
+      isListening: boolean;
+      transcript: string;
       startListening: () => Promise<void>;
       stopListening: () => Promise<void>;
 };
@@ -14,17 +16,24 @@ type ContextType = {
 const VocalRouteContext = createContext<ContextType | null>(null);
 
 export function VocalRouteProvider({ children }: { children: React.ReactNode }) {
+      const [isListening, setIsListening] = React.useState(false);
+      const [transcript, setTranscript] = React.useState('');
       const recorderRef = useRef(new AudioRecorder());
       const router = useRouter();
 
       const startListening = async () => {
+            setIsListening(true);
+            setTranscript('');
             await recorderRef.current.start();
       };
 
       const stopListening = async () => {
+            setIsListening(false);
             const _audio = await recorderRef.current.stop();
 
             // 🔴 Fake intent for now
+            setTranscript('Take me to invoices');
+
             const intent: VocalIntent = {
                   intent: 'navigate',
                   target: 'invoices',
@@ -36,7 +45,7 @@ export function VocalRouteProvider({ children }: { children: React.ReactNode }) 
       };
 
       return (
-            <VocalRouteContext.Provider value={{ startListening, stopListening }}>
+            <VocalRouteContext.Provider value={{ isListening, transcript, startListening, stopListening }}>
                   {children}
             </VocalRouteContext.Provider>
       );

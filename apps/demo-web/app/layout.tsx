@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { VocalRouteProvider } from 'vocalroute-sdk';
+import { GlobalVoiceHandler } from '../components/GlobalVoiceHandler';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,7 +29,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <VocalRouteProvider>{children}</VocalRouteProvider>
+        <VocalRouteProvider>
+          {children}
+          <GlobalVoiceHandler />
+        </VocalRouteProvider>
       </body>
     </html>
   );
