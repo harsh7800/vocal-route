@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 18, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/shivm/OneDrive/Desktop/vocal-route/apps/demo-web/app/invoices/page.tsx"],"sourcesContent":["export default function InvoicesPage() {\r\n      return (\r\n            <main>\r\n                  <h1>Invoices</h1>\r\n                  <p>You navigated here via voice 🎤</p>\r\n            </main>\r\n      );\r\n}\r\n"],"names":[],"mappings":";;;;;;AAAe,SAAS;IAClB,qBACM,8OAAC;;0BACK,8OAAC;0BAAG;;;;;;0BACJ,8OAAC;0BAAE;;;;;;;;;;;;AAGrB"}}]
-}
