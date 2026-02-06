@@ -16,7 +16,7 @@
     "incremental": true,
     "baseUrl": ".",
     "paths": {
-      "@vocalroute/sdk": ["packages/sdk/src/index.ts"]
+      "vocalroute-sdk": ["packages/sdk/src/index.ts"]
     }
   },
   "exclude": ["node_modules"]

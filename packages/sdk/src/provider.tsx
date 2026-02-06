@@ -1,23 +1,49 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+'use client';
 
-interface VocalRouteContextType {
-      // Define context state here
-}
+import React, { createContext, useContext, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { AudioRecorder } from './audio/recorder';
+import { routeRegistry } from './registry/routeMap';
+import type { VocalIntent } from './types';
 
-const VocalRouteContext = createContext<VocalRouteContextType | undefined>(undefined);
+type ContextType = {
+      startListening: () => Promise<void>;
+      stopListening: () => Promise<void>;
+};
 
-export const VocalRouteProvider = ({ children }: { children: ReactNode }) => {
+const VocalRouteContext = createContext<ContextType | null>(null);
+
+export function VocalRouteProvider({ children }: { children: React.ReactNode }) {
+      const recorderRef = useRef(new AudioRecorder());
+      const router = useRouter();
+
+      const startListening = async () => {
+            await recorderRef.current.start();
+      };
+
+      const stopListening = async () => {
+            const _audio = await recorderRef.current.stop();
+
+            // 🔴 Fake intent for now
+            const intent: VocalIntent = {
+                  intent: 'navigate',
+                  target: 'invoices',
+                  confidence: 0.95,
+            };
+
+            const route = routeRegistry[intent.target];
+            if (route) router.push(route);
+      };
+
       return (
-            <VocalRouteContext.Provider value={{}}>
+            <VocalRouteContext.Provider value={{ startListening, stopListening }}>
                   {children}
             </VocalRouteContext.Provider>
       );
-};
+}
 
-export const useVocalRouteContext = () => {
-      const context = useContext(VocalRouteContext);
-      if (!context) {
-            throw new Error('useVocalRouteContext must be used within a VocalRouteProvider');
-      }
-      return context;
+export const useVocalRoute = () => {
+      const ctx = useContext(VocalRouteContext);
+      if (!ctx) throw new Error('useVocalRoute must be used inside provider');
+      return ctx;
 };
