@@ -43,12 +43,11 @@ Respond in this exact JSON format:
 `;
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-4.1-mini",
+    model: process.env.TEXT_MODEL,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
     ],
-    temperature: 0,
   });
 
   const raw = completion.choices[0].message.content;

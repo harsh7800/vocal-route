@@ -16,6 +16,11 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+const tmpDir = path.join(process.cwd(), "tmp");
+
+if (!fs.existsSync(tmpDir)) {
+  fs.mkdirSync(tmpDir);
+}
 const wss = new WebSocketServer({ port: 3001 });
 
 console.log("🔊 VocalRoute WS server running on ws://localhost:3001");
@@ -89,7 +94,7 @@ wss.on("connection", (socket) => {
       // 2️⃣ Speech → Text
       const transcription = await openai.audio.transcriptions.create({
         file: fs.createReadStream(filePath),
-        model: "gpt-4o-transcribe",
+        model: process.env.TRANSCRIPTION_MODEL,
       });
 
       const transcript = transcription.text;
