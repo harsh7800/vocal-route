@@ -17,11 +17,11 @@ export default function InvoicesPage() {
                           <p className="text-neutral-500 text-sm mt-1">Review and manage your billing transactions.</p>
                     </div>
                     <div className="flex gap-3">
-                          <button className="flex items-center gap-2 px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg text-sm font-semibold hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors bg-white dark:bg-transparent">
+                              <button type='button' className="flex items-center gap-2 px-4 py-2 border border-neutral-200 dark:border-neutral-800 rounded-lg text-sm font-semibold hover:bg-neutral-50 dark:hover:bg-white/5 transition-colors bg-white dark:bg-transparent">
                                 <span className="material-symbols-outlined text-lg">download</span>
                                 Export CSV
                           </button>
-                          <button className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] text-white dark:bg-white dark:text-[#1a1a1a] rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">
+                              <button type='button' className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] text-white dark:bg-white dark:text-[#1a1a1a] rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">
                                 <span className="material-symbols-outlined text-lg">add</span>
                                 New Invoice
                           </button>
@@ -66,7 +66,7 @@ export default function InvoicesPage() {
                                                   </td>
                                                   <td className="px-6 py-4 text-sm text-neutral-500">{inv.date}</td>
                                                   <td className="px-6 py-4 text-right">
-                                                        <button className="text-neutral-400 hover:text-[#1a1a1a] dark:hover:text-white transition-colors">
+                                                        <button type='button' className="text-neutral-400 hover:text-[#1a1a1a] dark:hover:text-white transition-colors">
                                                               <span className="material-symbols-outlined">more_vert</span>
                                                         </button>
                                                   </td>

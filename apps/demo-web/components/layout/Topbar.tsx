@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { useVocalRoute } from 'vocalroute-sdk';
 
 export function Topbar() {
@@ -21,13 +20,14 @@ export function Topbar() {
       
       <div className="flex items-center gap-4">
         <button 
+          type='button'
           onClick={startListening}
           className="p-2 text-neutral-500 hover:text-[#1a1a1a] dark:hover:text-white transition-colors flex items-center gap-2 group"
           title="Voice Command"
         >
           <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">mic</span>
         </button>
-        <button className="p-2 text-neutral-500 hover:text-[#1a1a1a] dark:hover:text-white transition-colors">
+        <button type='button' className="p-2 text-neutral-500 hover:text-[#1a1a1a] dark:hover:text-white transition-colors">
           <span className="material-symbols-outlined text-2xl">notifications</span>
         </button>
         <div 

@@ -21,7 +21,7 @@ export default function SettingsPage() {
                           <div className="flex flex-col items-center gap-4">
                                 <div className="relative w-32 h-32 group cursor-pointer">
                                       <div className="w-full h-full rounded-full border-2 border-dashed border-neutral-300 dark:border-neutral-700 flex items-center justify-center overflow-hidden">
-                                            <img
+                                                <Image
                                                   className="w-full h-full object-cover"
                                                   src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
                                                   alt="Profile"
@@ -40,7 +40,7 @@ export default function SettingsPage() {
                           <div className="md:col-span-2 space-y-5">
                                 <div className="grid grid-cols-2 gap-4">
                                       <div className="flex flex-col gap-1.5">
-                                            <label className="text-xs font-bold uppercase tracking-wider text-neutral-500">First Name</label>
+                                                <label htmlFor='firstName' className="text-xs font-bold uppercase tracking-wider text-neutral-500">First Name</label>
                                             <input
                                                   className="h-10 rounded border border-neutral-200 dark:border-neutral-800 bg-transparent px-3 text-sm focus:border-[#1a1a1a] focus:ring-0 dark:text-white"
                                                   type="text"
@@ -48,7 +48,7 @@ export default function SettingsPage() {
                                             />
                                       </div>
                                       <div className="flex flex-col gap-1.5">
-                                            <label className="text-xs font-bold uppercase tracking-wider text-neutral-500">Last Name</label>
+                                                <label htmlFor='lastName' className="text-xs font-bold uppercase tracking-wider text-neutral-500">Last Name</label>
                                             <input
                                                   className="h-10 rounded border border-neutral-200 dark:border-neutral-800 bg-transparent px-3 text-sm focus:border-[#1a1a1a] focus:ring-0 dark:text-white"
                                                   type="text"
@@ -57,7 +57,7 @@ export default function SettingsPage() {
                                       </div>
                                 </div>
                                 <div className="flex flex-col gap-1.5">
-                                      <label className="text-xs font-bold uppercase tracking-wider text-neutral-500">Email Address</label>
+                                          <label htmlFor='email' className="text-xs font-bold uppercase tracking-wider text-neutral-500">Email Address</label>
                                       <input
                                             className="h-10 rounded border border-neutral-200 dark:border-neutral-800 bg-transparent px-3 text-sm focus:border-[#1a1a1a] focus:ring-0 dark:text-white"
                                             type="email"
@@ -95,10 +95,10 @@ export default function SettingsPage() {
 
               {/* Actions */}
               <div className="pt-4 flex gap-4">
-                    <button className="bg-[#1a1a1a] text-white dark:bg-white dark:text-[#1a1a1a] text-sm font-bold h-11 px-6 rounded-lg shadow-lg hover:opacity-90 transition-opacity">
+                        <button type='button' className="bg-[#1a1a1a] text-white dark:bg-white dark:text-[#1a1a1a] text-sm font-bold h-11 px-6 rounded-lg shadow-lg hover:opacity-90 transition-opacity">
                           Save Changes
                     </button>
-                    <button className="border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 text-sm font-bold h-11 px-6 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
+                        <button type='button' className="border border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 text-sm font-bold h-11 px-6 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
                           Cancel
                     </button>
               </div>
