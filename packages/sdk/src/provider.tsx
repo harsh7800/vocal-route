@@ -6,6 +6,8 @@ import NextTopLoader from 'nextjs-toploader';
 import { SpeechTranscriber } from './audio/transcriber';
 import { VolumeVisualizer } from './audio/visualizer';
 import { staticRegistry } from './generated/registry';
+import { VoiceOverlay } from './components/VoiceOverlay';
+import { VocalRouteButton } from './components/VocalRouteButton';
 import type { VocalIntent, RouteRegistry } from './types';
 
 export type ContextType = {
@@ -25,11 +27,46 @@ const VocalRouteContext = createContext<ContextType | null>(null);
 interface ProviderProps {
       children: ReactNode;
       routes?: RouteRegistry;
+      /**
+       * Whether to show the built-in voice overlay.
+       * @default true
+       */
+      showOverlay?: boolean;
+      /**
+       * Customization for the built-in overlay.
+       */
+      overlayConfig?: {
+            themeColor?: 'cyan' | 'blue' | 'purple';
+            title?: string;
+      };
+      /**
+       * Whether to show the built-in trigger button.
+       * @default false
+       */
+      showButton?: boolean;
+      /**
+       * Customization for the built-in button.
+       */
+      buttonConfig?: {
+            position?: { top?: string; bottom?: string; left?: string; right?: string };
+            className?: string;
+            children?: React.ReactNode;
+      };
+      /**
+       * API URL for intent resolution.
+       * @default "/api/vocal-route"
+       */
+      apiUrl?: string;
 }
 
 export function VocalRouteProvider({ 
       children,
-      routes = staticRegistry as unknown as RouteRegistry
+      routes = staticRegistry as unknown as RouteRegistry,
+      showOverlay = true,
+      overlayConfig,
+      showButton = false,
+      buttonConfig,
+      apiUrl = "/api/vocal-route"
 }: ProviderProps) {
       const [isListening, setIsListening] = useState(false);
       const [isProcessing, setIsProcessing] = useState(false);
@@ -81,18 +118,16 @@ export function VocalRouteProvider({
       const processIntent = useCallback(async (text: string) => {
             setIsProcessing(true);
             try {
-                  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/intent";
-
                   const response = await fetch(apiUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                               text,
                               routes: registry.map(r => ({
-                                    id: r.path,
-                                    aliases: r.intents,
+                                    path: r.path,
+                                    intents: r.intents,
                                     title: r.title,
-                                    params: Object.keys(r.params || {})
+                                    params: r.params
                               }))
                         })
                   });
@@ -100,7 +135,7 @@ export function VocalRouteProvider({
                   if (!response.ok) throw new Error("Failed to process intent");
 
                   const intent: VocalIntent = await response.json();
-                  console.log('🧠 Intent from server:', intent);
+                  console.log('🧠 Intent result:', intent);
 
                   setTranscript(intent.transcript);
                   setConfidence(intent.confidence);
@@ -122,7 +157,7 @@ export function VocalRouteProvider({
                               setTimeout(() => {
                                     setIsListening(false);
                                     setIsProcessing(false);
-                              }, 800);
+                              }, 1200);
                               return;
                         }
                   }
@@ -134,11 +169,11 @@ export function VocalRouteProvider({
                   }
                   setIsProcessing(false);
             } catch (err) {
-                  console.error("❌ API Error:", err);
+                  console.error("❌ VocalRoute Error:", err);
                   setError("Something went wrong. Please try again.");
                   setIsProcessing(false);
             }
-      }, [registry, router]);
+      }, [registry, router, apiUrl]);
 
       const startListening = async () => {
             if (!registry || registry.length === 0) {
@@ -193,8 +228,26 @@ export function VocalRouteProvider({
                   startListening,
                   stopListening
             }}>
-                  <NextTopLoader showSpinner={false} color="#22d3ee" />
+                  <NextTopLoader showSpinner={false} color={overlayConfig?.themeColor || "#22d3ee"} />
                   {children}
+                  {showOverlay && (
+                        <VoiceOverlay
+                              isListening={isListening}
+                              isProcessing={isProcessing}
+                              transcript={transcript}
+                              error={error}
+                              volume={volume}
+                              onClose={stopListening}
+                              onRetry={startListening}
+                              themeColor={overlayConfig?.themeColor}
+                              title={overlayConfig?.title}
+                        />
+                  )}
+                  {showButton && (
+                        <VocalRouteButton
+                              {...buttonConfig}
+                        />
+                  )}
             </VocalRouteContext.Provider>
       );
 }
