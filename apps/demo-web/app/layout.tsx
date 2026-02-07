@@ -2,11 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { VocalRouteProvider } from 'vocalroute-sdk';
-import { GlobalVoiceHandler } from '../components/GlobalVoiceHandler';
 import { Sidebar } from '../components/layout/Sidebar';
 import { Topbar } from '../components/layout/Topbar';
-import { VocalRouteButton } from '../components/VocalRouteButton';
-
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -40,7 +37,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#f7f7f7] dark:bg-[#191919] text-[#1a1a1a] dark:text-white transition-colors duration-200`}
       >
-        <VocalRouteProvider>
+        <VocalRouteProvider
+          overlayConfig={{ themeColor: 'cyan', title: 'How can I help?' }}
+          showButton={true}
+        >
           <div className="flex min-h-screen">
             <Sidebar />
             <div className="flex-1 flex flex-col min-w-0">
@@ -50,8 +50,6 @@ export default function RootLayout({
               </div>
             </div>
           </div>
-          <GlobalVoiceHandler />
-          <VocalRouteButton />
         </VocalRouteProvider>
       </body>
     </html>
