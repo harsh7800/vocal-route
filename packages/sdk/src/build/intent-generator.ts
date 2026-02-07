@@ -108,24 +108,31 @@ export class IntentGenerator {
 
   private generateStaticIntents(route: DiscoveredRoute): string[] {
     const intents: string[] = [];
-
+    
     // 1. Clean segments: filter out dynamic [param] and empty strings
     const segments = route.path
-      .split("/")
-      .filter((s) => s && !s.startsWith("["));
-
+      .split('/')
+      .filter(s => s && !s.startsWith('['));
+    
     if (segments.length === 0) {
       intents.push("home", "dashboard", "manual", "main page");
     } else {
       const last = segments[segments.length - 1];
-      const fullSpaced = segments.join(" ").replace(/[-_]/g, " ");
       const lastSpaced = last.replace(/[-_]/g, " ");
 
-      // Add variations
+      // Add full path variations
+      const fullSpaced = segments.join(" ").replace(/[-_]/g, " ");
       intents.push(fullSpaced);
-      intents.push(lastSpaced);
 
-      // Handle "my" and "user" paths specifically
+      // If deep, add parent + child for context
+      if (segments.length >= 2) {
+        const parent = segments[segments.length - 2];
+        intents.push(`${parent.replace(/[-_]/g, " ")} ${lastSpaced}`);
+      } else {
+        intents.push(lastSpaced);
+      }
+
+      // Handle "my" segments specifically
       if (
         route.path.includes("/my") ||
         route.path.includes("/me") ||
@@ -133,6 +140,13 @@ export class IntentGenerator {
       ) {
         if (!lastSpaced.includes("my")) {
           intents.push(`my ${lastSpaced}`);
+          // Add even more specific one if deep
+          if (segments.length >= 2) {
+            const parent = segments[segments.length - 2].replace(/[-_]/g, " ");
+            if (parent !== "my") {
+              intents.push(`my ${parent} ${lastSpaced}`);
+            }
+          }
         }
       }
     }
@@ -146,9 +160,14 @@ export class IntentGenerator {
       intents.push(cleanTitle);
     }
 
-    // 3. Apply core verbs to the strongest variations
-    const verbs = ["open", "go to", "show", "view", "navigate to"];
-    const baseVariations = intents.slice(0, 3);
+    // 3. Filter out very short generic intents that might cause collisions
+    const filtered = intents.filter(
+      (i) => i.length > 2 && i !== "my" && i !== "user",
+    );
+
+    // 4. Apply core verbs
+    const verbs = ["open", "go to", "show", "view"];
+    const baseVariations = filtered.slice(0, 4);
     const verbalIntents: string[] = [];
 
     for (const v of verbs) {
@@ -158,10 +177,10 @@ export class IntentGenerator {
     }
 
     // Combine and deduplicate
-    const finalIntents = Array.from(new Set([...intents, ...verbalIntents]))
-      .filter((i) => i.length > 2)
-      .slice(0, 15); // Increase limit for better coverage
-
+    const finalIntents = Array.from(new Set([...filtered, ...verbalIntents]))
+      .filter((i) => i.length > 3)
+      .slice(0, 15);
+        
     return finalIntents;
   }
 }

@@ -130,16 +130,22 @@ export function resolveLocalIntent(
 ): VocalIntent {
   const normalizedTranscript = transcript.toLowerCase().trim();
 
-  let bestMatch: { route: any; confidence: number } | null = null;
+  let bestMatch: {
+    route: any;
+    confidence: number;
+    specificity: number;
+  } | null = null;
+
+  // Helper for word boundary matching
+  const matchesWord = (text: string, phrase: string) => {
+    const regex = new RegExp(`\\b${phrase}\\b`, "i");
+    return regex.test(text);
+  };
 
   for (const route of registry) {
-    let maxRouteConfidence = 0;
-
-    // Helper for word boundary matching
-    const matchesWord = (text: string, phrase: string) => {
-      const regex = new RegExp(`\\b${phrase}\\b`, "i");
-      return regex.test(text);
-    };
+    let score = 0;
+    const segments = route.path.split("/").filter(Boolean);
+    const pathDepth = segments.length;
 
     // 1. Check direct intent matches
     if (route.intents) {
@@ -147,16 +153,12 @@ export function resolveLocalIntent(
         const normalizedIntent = intent.toLowerCase();
 
         if (normalizedTranscript === normalizedIntent) {
-          maxRouteConfidence = Math.max(maxRouteConfidence, 0.95);
+          score = Math.max(score, 0.98);
         } else if (matchesWord(normalizedTranscript, normalizedIntent)) {
-          // Calculate closeness based on word count
           const transcriptWords = normalizedTranscript.split(/\s+/).length;
           const intentWords = normalizedIntent.split(/\s+/).length;
           const ratio = intentWords / transcriptWords;
-          maxRouteConfidence = Math.max(
-            maxRouteConfidence,
-            0.75 + ratio * 0.15,
-          );
+          score = Math.max(score, 0.7 + ratio * 0.25);
         }
       }
     }
@@ -165,28 +167,30 @@ export function resolveLocalIntent(
     if (route.title) {
       const normalizedTitle = route.title.toLowerCase();
       if (normalizedTranscript === normalizedTitle) {
-        maxRouteConfidence = Math.max(maxRouteConfidence, 0.9);
+        score = Math.max(score, 0.95);
       } else if (matchesWord(normalizedTranscript, normalizedTitle)) {
         const titleWords = normalizedTitle.split(/\s+/).length;
         const transcriptWords = normalizedTranscript.split(/\s+/).length;
         const ratio = titleWords / transcriptWords;
-        maxRouteConfidence = Math.max(maxRouteConfidence, 0.7 + ratio * 0.1);
+        score = Math.max(score, 0.75 + ratio * 0.15);
       }
     }
 
     // 3. Path-based heuristics
-    const pathSlug = route.path.split("/").pop()?.toLowerCase();
-    if (pathSlug && pathSlug.length > 2) {
-      const normalizedSlug = pathSlug.replace(/[-_]/g, " ");
+    const lastSegment = segments[segments.length - 1]?.toLowerCase();
+    if (lastSegment && lastSegment.length > 2) {
+      const normalizedSlug = lastSegment.replace(/[-_]/g, " ");
       if (normalizedTranscript === normalizedSlug) {
-        maxRouteConfidence = Math.max(maxRouteConfidence, 0.85);
+        score = Math.max(score, 0.9);
       } else if (matchesWord(normalizedTranscript, normalizedSlug)) {
-        maxRouteConfidence = Math.max(maxRouteConfidence, 0.75);
+        const slugWords = normalizedSlug.split(/\s+/).length;
+        const transcriptWords = normalizedTranscript.split(/\s+/).length;
+        const ratio = slugWords / transcriptWords;
+        score = Math.max(score, 0.65 + ratio * 0.2);
       }
     }
 
     // 4. "My" route prioritization
-    // If user says "my X" and the route path includes "my" or "me", give it a boost
     const isUserQuery =
       normalizedTranscript.startsWith("my ") ||
       normalizedTranscript.includes(" me ");
@@ -196,20 +200,38 @@ export function resolveLocalIntent(
       route.path.includes("/user");
 
     if (isUserQuery && isPersonalRoute) {
-      maxRouteConfidence += 0.1;
+      score += 0.05;
     } else if (isUserQuery && !isPersonalRoute) {
-      // Penalty for matching a non-personal route when user said "my"
-      maxRouteConfidence -= 0.2;
+      score -= 0.25; // Heavier penalty to avoid false leads
     }
 
-    if (maxRouteConfidence > (bestMatch?.confidence || 0)) {
-      bestMatch = { route, confidence: Math.min(maxRouteConfidence, 0.99) };
+    const finalScore = Math.min(score, 0.99);
+    const paramsCount = Array.isArray(route.params) ? route.params.length : 0;
+    const currentSpecificity = (pathDepth as number) + paramsCount;
+
+    // Selection logic
+    if (!bestMatch || finalScore > bestMatch.confidence) {
+      bestMatch = {
+        route,
+        confidence: finalScore,
+        specificity: currentSpecificity,
+      };
+    } else if (
+      Math.abs(finalScore - bestMatch.confidence) < 0.02 &&
+      finalScore > 0.4
+    ) {
+      // Tie-breaker: choose the more specific route (usually deeper in the tree)
+      if (currentSpecificity > bestMatch.specificity) {
+        bestMatch = {
+          route,
+          confidence: finalScore,
+          specificity: currentSpecificity,
+        };
+      }
     }
   }
 
   if (bestMatch && bestMatch.confidence >= 0.7) {
-    // Basic param extraction if needed (placeholder for now)
-    // In a local resolver, we might just look for numbers or specific keywords
     return {
       intent: "navigate",
       target: bestMatch.route.path,
@@ -220,10 +242,10 @@ export function resolveLocalIntent(
   }
 
   return {
+    transcript,
     intent: "unknown",
     target: null,
     confidence: 0,
-    transcript,
-    reply: "I'm not sure which page you're looking for.",
+    reply: "I'm not exactly sure what you mean. Could you rephrase that?",
   };
 }
