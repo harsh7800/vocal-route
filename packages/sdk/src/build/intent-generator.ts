@@ -84,11 +84,11 @@ export class IntentGenerator {
           {
             role: "system",
             content:
-              "You are a specialized agent that generates natural language voice commands (intents) for a specific web page route. Generate 10-15 diverse and natural ways a user might ask to navigate to this page. Focus on semantic variations, casual speech, and possessive terms if relevant (e.g. 'my', 'me', 'mine'). Return ONLY a comma-separated list.",
+              "You are a specialized agent generating natural language voice commands (intents) for a specific web page.\n\nCRITICAL RULE: Your intents must be UNIQUE and SPECIFIC enough to distinguish this page from other similar pages. Use the ENTIRE path hierarchy to find unique keywords. Generate 12-15 diverse variations (casual, formal, short, long). Return ONLY a comma-separated list of intents in lowercase.",
           },
           {
             role: "user",
-            content: `Route Path: ${route.path}\nRoute Title: ${route.title}\nDynamic Params: ${route.params.join(", ")}`,
+            content: `Page Context:\n- Path: ${route.path}\n- Title: ${route.title}\n- Parameters: ${route.params.join(", ") || "none"}\n\nGenerate distinguishing navigation intents:`,
           },
         ],
       });

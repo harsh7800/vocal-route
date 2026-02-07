@@ -149,7 +149,14 @@ export function resolveLocalIntent(
         if (normalizedTranscript === normalizedIntent) {
           maxRouteConfidence = Math.max(maxRouteConfidence, 0.95);
         } else if (matchesWord(normalizedTranscript, normalizedIntent)) {
-          maxRouteConfidence = Math.max(maxRouteConfidence, 0.85);
+          // Calculate closeness based on word count
+          const transcriptWords = normalizedTranscript.split(/\s+/).length;
+          const intentWords = normalizedIntent.split(/\s+/).length;
+          const ratio = intentWords / transcriptWords;
+          maxRouteConfidence = Math.max(
+            maxRouteConfidence,
+            0.75 + ratio * 0.15,
+          );
         }
       }
     }
@@ -160,14 +167,20 @@ export function resolveLocalIntent(
       if (normalizedTranscript === normalizedTitle) {
         maxRouteConfidence = Math.max(maxRouteConfidence, 0.9);
       } else if (matchesWord(normalizedTranscript, normalizedTitle)) {
-        maxRouteConfidence = Math.max(maxRouteConfidence, 0.8);
+        const titleWords = normalizedTitle.split(/\s+/).length;
+        const transcriptWords = normalizedTranscript.split(/\s+/).length;
+        const ratio = titleWords / transcriptWords;
+        maxRouteConfidence = Math.max(maxRouteConfidence, 0.7 + ratio * 0.1);
       }
     }
 
     // 3. Path-based heuristics
     const pathSlug = route.path.split("/").pop()?.toLowerCase();
     if (pathSlug && pathSlug.length > 2) {
-      if (matchesWord(normalizedTranscript, pathSlug)) {
+      const normalizedSlug = pathSlug.replace(/[-_]/g, " ");
+      if (normalizedTranscript === normalizedSlug) {
+        maxRouteConfidence = Math.max(maxRouteConfidence, 0.85);
+      } else if (matchesWord(normalizedTranscript, normalizedSlug)) {
         maxRouteConfidence = Math.max(maxRouteConfidence, 0.75);
       }
     }
