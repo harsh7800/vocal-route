@@ -16,6 +16,7 @@ export type VocalIntent = {
   confidence: number;
   transcript: string;
   params?: Record<string, string>;
+  reply?: string;
 };
 
 export type VocalRouteConfig = {

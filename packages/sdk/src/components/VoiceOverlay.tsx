@@ -13,6 +13,7 @@ export interface VoiceOverlayProps {
   confidence?: number;
   volume?: number;
   frequencies?: number[];
+  agentReply?: string | null;
   onClose?: () => void;
   onRetry?: () => void;
   // Customization options
@@ -31,6 +32,8 @@ export function VoiceOverlay({
   title,
   volume = 0,
   frequencies = [],
+  agentReply,
+  isSpeaking = false,
   type = 'compact',
   themeColor = 'cyan'
 }: VoiceOverlayProps) {
@@ -106,10 +109,10 @@ export function VoiceOverlay({
                 fontWeight: 500,
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase',
-                color: 'rgba(255,255,255,0.6)'
+                color: isSpeaking ? '#22d3ee' : 'rgba(255,255,255,0.6)'
               }}
             >
-              {error ? "Error" : isProcessing ? "Processing..." : title || "Listening..."}
+              {error ? "Error" : isSpeaking ? "Speaking..." : isProcessing ? "Processing..." : title || "Listening..."}
             </motion.p>
 
             {/* Orb */}
@@ -141,8 +144,10 @@ export function VoiceOverlay({
             >
               {error ? (
                 <p style={{ fontSize: '1.125rem', color: '#f87171' }}>{error}</p>
+              ) : agentReply ? (
+                <p style={{ fontSize: '1.5rem', fontWeight: 500, color: '#22d3ee' }}>"{agentReply}"</p>
               ) : transcript ? (
-                <p style={{ fontSize: '1.5rem', fontWeight: 500, color: '#ffffff' }}>"{transcript}"</p>
+                    <p style={{ fontSize: '1.5rem', fontWeight: 500, color: '#ffffff' }}>"{transcript}"</p>
               ) : (
                 <p style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.4)' }}>
                   Say "Go to settings" or "Create a new post"
@@ -272,7 +277,7 @@ export function VoiceOverlay({
               />
             </div>
             <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 'bold', color: '#1a1a1a' }} className="vocal-text-dark-white">
-              {error ? 'Error' : isProcessing ? 'Processing...' : title || 'Listening...'}
+              {error ? 'Error' : isSpeaking ? 'Speaking...' : isProcessing ? 'Processing...' : title || 'Listening...'}
             </p>
           </div>
           <button
@@ -326,6 +331,8 @@ export function VoiceOverlay({
         <div style={{ backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '0.5rem', padding: '0.75rem' }} className="vocal-transcript-bg">
           {error ? (
             <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500, color: '#ef4444' }}>{error}</p>
+          ) : agentReply ? (
+            <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500, color: '#06b6d4' }}>{agentReply}</p>
           ) : transcript ? (
               <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500, color: '#1a1a1a' }} className="vocal-text-dark-white">"{transcript}"</p>
           ) : (

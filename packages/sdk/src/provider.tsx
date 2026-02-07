@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import NextTopLoader from 'nextjs-toploader';
 import { SpeechTranscriber } from './audio/transcriber';
 import { VolumeVisualizer } from './audio/visualizer';
+import { BrowserTTS } from './audio/tts';
 import { staticRegistry } from './generated/registry';
 import { VoiceOverlay } from './components/VoiceOverlay';
 import { VocalRouteButton } from './components/VocalRouteButton';
@@ -19,6 +20,8 @@ export type ContextType = {
       confidence: number;
       volume: number;
       frequencies?: number[];
+      agentReply: string | null;
+      isSpeaking: boolean;
       error: string | null;
       registry: RouteRegistry;
       startListening: () => Promise<void>;
@@ -68,12 +71,15 @@ export function VocalRouteProvider({
       const [confidence, setConfidence] = useState(1);
       const [volume, setVolume] = useState(0);
       const [frequencies, setFrequencies] = useState<number[]>([]);
+      const [agentReply, setAgentReply] = useState<string | null>(null);
+      const [isSpeaking, setIsSpeaking] = useState(false);
       const [error, setError] = useState<string | null>(null);
 
       const [registry, setRegistry] = useState<RouteRegistry>(routes);
 
       const transcriberRef = useRef<SpeechTranscriber | null>(null);
       const visualizerRef = useRef<VolumeVisualizer | null>(null);
+      const ttsRef = useRef<BrowserTTS | null>(null);
       const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
       const router = useRouter();
       const pathname = usePathname();
@@ -122,34 +128,61 @@ export function VocalRouteProvider({
                   setTranscript(intent.transcript);
                   setConfidence(intent.confidence);
 
-                  if (intent.intent === 'navigate' && intent.target && intent.confidence >= 0.7) {
-                        const targetRoute = registry.find(r => r.path === intent.target);
+                  // Handle TTS Reply
+                  if (intent.reply) {
+                        setAgentReply(intent.reply);
+                        if (!ttsRef.current) {
+                              ttsRef.current = BrowserTTS.getInstance();
+                        }
 
-                        if (targetRoute) {
-                              // Handle parameter injection
-                              let finalPath = targetRoute.path;
-                              if (intent.params) {
-                                    for (const [key, value] of Object.entries(intent.params)) {
-                                          finalPath = finalPath.replace(`[${key}]`, value);
+                        setIsSpeaking(true);
+                        ttsRef.current.speak(intent.reply,
+                              () => setIsSpeaking(true),
+                              () => {
+                                    setIsSpeaking(false);
+                                    // Navigate only after speech if it's a navigation intent
+                                    if (intent.intent === 'navigate' && intent.target && intent.confidence >= 0.7) {
+                                          finishNavigation();
                                     }
                               }
-
-                              router.push(finalPath);
-                              setError(null);
-                              setTimeout(() => {
-                                    setIsListening(false);
-                                    setIsProcessing(false);
-                              }, 1200);
-                              return;
-                        }
-                  }
-
-                  if (intent.confidence < 0.7) {
-                        setError("I'm not exactly sure what you mean. Could you rephrase that?");
+                        );
                   } else {
-                        setError("Sorry, I couldn't find a matching page for that command.");
+                        // Fallback if no reply provided
+                        finishNavigation();
                   }
-                  setIsProcessing(false);
+
+                  function finishNavigation() {
+                        if (intent.intent === 'navigate' && intent.target && intent.confidence >= 0.7) {
+                              const targetRoute = registry.find(r => r.path === intent.target);
+
+                              if (targetRoute) {
+                                    // Handle parameter injection
+                                    let finalPath = targetRoute.path;
+                                    if (intent.params) {
+                                          for (const [key, value] of Object.entries(intent.params)) {
+                                                finalPath = finalPath.replace(`[${key}]`, value);
+                                          }
+                                    }
+
+                                    router.push(finalPath);
+                                    setError(null);
+                                    setTimeout(() => {
+                                          setIsListening(false);
+                                          setIsProcessing(false);
+                                          setAgentReply(null);
+                                    }, 1200);
+                                    return;
+                              }
+                        }
+
+                        if (intent.confidence < 0.7) {
+                              setError("I'm not exactly sure what you mean. Could you rephrase that?");
+                        } else {
+                              setError("Sorry, I couldn't find a matching page for that command.");
+                        }
+                        setIsProcessing(false);
+                  }
+
             } catch (err) {
                   console.error("❌ VocalRoute Error:", err);
                   setError("Something went wrong. Please try again.");
@@ -168,6 +201,9 @@ export function VocalRouteProvider({
             setIsListening(true);
             setIsProcessing(false);
             setTranscript('');
+            setAgentReply(null);
+            setFrequencies([]);
+            setIsSpeaking(false);
             setConfidence(1);
             setVolume(0);
             setError(null);
@@ -217,6 +253,7 @@ export function VocalRouteProvider({
             setIsProcessing(false);
             transcriberRef.current?.stop();
             visualizerRef.current?.stop();
+            ttsRef.current?.stop();
       };
 
       return (
@@ -227,6 +264,8 @@ export function VocalRouteProvider({
                   confidence,
                   volume,
                   frequencies,
+                  agentReply,
+                  isSpeaking,
                   error,
                   registry,
                   startListening,
@@ -242,6 +281,8 @@ export function VocalRouteProvider({
                               error={error}
                               volume={volume}
                               frequencies={frequencies}
+                              agentReply={agentReply}
+                              isSpeaking={isSpeaking}
                               onClose={stopListening}
                               onRetry={startListening}
                               themeColor={overlayConfig?.themeColor}

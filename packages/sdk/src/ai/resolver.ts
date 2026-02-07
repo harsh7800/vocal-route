@@ -202,6 +202,7 @@ export function resolveLocalIntent(
       target: bestMatch.route.path,
       confidence: bestMatch.confidence,
       transcript,
+      reply: `Navigating to ${bestMatch.route.title || bestMatch.route.path}...`,
     };
   }
 
@@ -210,5 +211,6 @@ export function resolveLocalIntent(
     target: null,
     confidence: 0,
     transcript,
+    reply: "I'm not sure which page you're looking for.",
   };
 }
