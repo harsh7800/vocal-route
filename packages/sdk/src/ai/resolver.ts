@@ -135,13 +135,20 @@ export function resolveLocalIntent(
   for (const route of registry) {
     let maxRouteConfidence = 0;
 
+    // Helper for word boundary matching
+    const matchesWord = (text: string, phrase: string) => {
+      const regex = new RegExp(`\\b${phrase}\\b`, "i");
+      return regex.test(text);
+    };
+
     // 1. Check direct intent matches
     if (route.intents) {
       for (const intent of route.intents) {
         const normalizedIntent = intent.toLowerCase();
+
         if (normalizedTranscript === normalizedIntent) {
           maxRouteConfidence = Math.max(maxRouteConfidence, 0.95);
-        } else if (normalizedTranscript.includes(normalizedIntent)) {
+        } else if (matchesWord(normalizedTranscript, normalizedIntent)) {
           maxRouteConfidence = Math.max(maxRouteConfidence, 0.85);
         }
       }
@@ -150,47 +157,40 @@ export function resolveLocalIntent(
     // 2. Check title matches
     if (route.title) {
       const normalizedTitle = route.title.toLowerCase();
-      if (normalizedTranscript.includes(normalizedTitle)) {
+      if (normalizedTranscript === normalizedTitle) {
+        maxRouteConfidence = Math.max(maxRouteConfidence, 0.9);
+      } else if (matchesWord(normalizedTranscript, normalizedTitle)) {
+        maxRouteConfidence = Math.max(maxRouteConfidence, 0.8);
+      }
+    }
+
+    // 3. Path-based heuristics
+    const pathSlug = route.path.split("/").pop()?.toLowerCase();
+    if (pathSlug && pathSlug.length > 2) {
+      if (matchesWord(normalizedTranscript, pathSlug)) {
         maxRouteConfidence = Math.max(maxRouteConfidence, 0.75);
       }
     }
 
-    // 3. Check path matches (semantic-ish)
-    // 3. Check path matches (semantic-ish)
-    // Handle "clients" matching "client page" or "client"
-    const pathSlug = route.path.split("/").pop()?.toLowerCase();
+    // 4. "My" route prioritization
+    // If user says "my X" and the route path includes "my" or "me", give it a boost
+    const isUserQuery =
+      normalizedTranscript.startsWith("my ") ||
+      normalizedTranscript.includes(" me ");
+    const isPersonalRoute =
+      route.path.includes("/my") ||
+      route.path.includes("/me") ||
+      route.path.includes("/user");
 
-    if (pathSlug && pathSlug.length > 2) {
-      // Direct match
-      if (normalizedTranscript.includes(pathSlug)) {
-        maxRouteConfidence = Math.max(maxRouteConfidence, 0.75);
-      }
-
-      // Singular/Plural handling (e.g. route: "invoices", transcript: "invoice")
-      const singularSlug = pathSlug.endsWith("s")
-        ? pathSlug.slice(0, -1)
-        : pathSlug;
-      if (normalizedTranscript.includes(singularSlug)) {
-        maxRouteConfidence = Math.max(maxRouteConfidence, 0.7);
-      }
-
-      // Split slug handling (e.g. route: "user-profile", transcript: "user profile")
-      const spacedSlug = pathSlug.replace(/-/g, " ");
-      if (normalizedTranscript.includes(spacedSlug)) {
-        maxRouteConfidence = Math.max(maxRouteConfidence, 0.7);
-      }
-
-      // Reverse split handling (e.g. route: "settings", transcript: "setting")
-      const singularSpaced = spacedSlug.endsWith("s")
-        ? spacedSlug.slice(0, -1)
-        : spacedSlug;
-      if (normalizedTranscript.includes(singularSpaced)) {
-        maxRouteConfidence = Math.max(maxRouteConfidence, 0.7);
-      }
+    if (isUserQuery && isPersonalRoute) {
+      maxRouteConfidence += 0.1;
+    } else if (isUserQuery && !isPersonalRoute) {
+      // Penalty for matching a non-personal route when user said "my"
+      maxRouteConfidence -= 0.2;
     }
 
     if (maxRouteConfidence > (bestMatch?.confidence || 0)) {
-      bestMatch = { route, confidence: maxRouteConfidence };
+      bestMatch = { route, confidence: Math.min(maxRouteConfidence, 0.99) };
     }
   }
 

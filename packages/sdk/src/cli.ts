@@ -10,6 +10,7 @@ async function scan() {
   // Parse arguments
   const args = process.argv.slice(3);
   const skipIndex = args.indexOf("--skip");
+  const aiFlag = args.includes("--ai");
   let skipSegments: string[] = [];
   if (skipIndex !== -1 && args[skipIndex + 1]) {
     skipSegments = args[skipIndex + 1].split(",").map((s) => s.trim());
@@ -18,6 +19,9 @@ async function scan() {
   console.log("🚀 [VocalRoute] Scanning project for routes...");
   if (skipSegments.length > 0) {
     console.log(`ℹ️  Skipping segments: ${skipSegments.join(", ")}`);
+  }
+  if (aiFlag) {
+    console.log("🤖 AI Intent Generation enabled.");
   }
 
   // 1. Discover routes
@@ -35,7 +39,9 @@ async function scan() {
 
   // 2. Generate intents (and cache)
   const generator = new IntentGenerator(projectRoot);
-  const registry = await generator.generate(discovered);
+  const registry = await generator.generate(discovered, {
+    openaiApiKey: aiFlag ? process.env.OPENAI_API_KEY : undefined,
+  });
   console.log("🤖 Intents generated.");
 
   // 3. Save registry
@@ -65,11 +71,13 @@ VocalRoute AI SDK CLI
 
 Usage:
   npx vocalroute scan                Scan routes and generate intent registry
+  npx vocalroute scan --ai           Scan and use AI to generate smart intents (requires OPENAI_API_KEY)
   npx vocalroute scan --skip locale  Scan and skip specific segments from registry paths
   npx vocalroute --help              Show this help message
 
 Options:
   --skip <segments>   Comma-separated list of segments to skip in logical paths (e.g. "locale,shopId")
+  --ai                Use LLM to generate more natural and diverse intents for each route
 `);
 }
 

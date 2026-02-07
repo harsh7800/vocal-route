@@ -20,11 +20,23 @@ Scan your project routes and generate an intent registry:
 npx vocalroute scan
 ```
 
+### Advanced Scanning
+
+For complex apps with many similar routes or internationalization, use high-quality scanning:
+
+```bash
+# Use AI to generate diverse and natural intents (requires OPENAI_API_KEY)
+npx vocalroute scan --ai
+
+# Skip structural segments (like [locale]) to group logical pages
+npx vocalroute scan --skip locale
+```
+
 The CLI will:
 
 - Scan your Next.js `app` or `pages` directory.
 - Identify all available routes and parameters.
-- Generate navigation intents (e.g., "go to home", "open settings").
+- Generate navigation intents (e.g., "go to my ads", "open chat").
 - Create a `vocalroute/` directory in your project containing `registry.json` and `registry.ts`.
 
 > **Note:** Run this command whenever you add or modify routes.
