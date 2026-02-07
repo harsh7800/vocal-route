@@ -1,45 +1,70 @@
-# Vocal Route
+# VocalRoute AI
 
-Vocal Route is a monorepo containing a core SDK, a stateless backend for intent resolution, and a demo web application.
+Powerful voice navigation and AI assistance for modern web applications.
 
-## Architecture
-Vocal Route uses a modern, stateless architecture:
-- **Client-Side Transcription:** Speech-to-text is handled in the browser using the Web Speech API.
-- **Local Visualization:** Real-time audio analysis for a dynamic "liquid wobble" UI.
-- **Stateless API:** A lightweight Node.js backend for AI-powered intent extraction.
+VocalRoute allows users to navigate your Next.js application using voice commands. It handles transcription, intent resolution, and navigation entirely in the browser, providing a fast and private user experience.
 
-## Structure
+## Monorepo Structure
 
-- `apps/demo-web`: A Next.js application demonstrating SDK integration.
-- `packages/sdk`: The core library handling transcription, local visualization (`VolumeVisualizer`), and communication.
-- `packages/backend`: A stateless Node.js HTTP server for mapping transcripts to route intents via OpenAI.
+-   `packages/sdk`: The core SDK (`@vocalroute-ai/sdk`) for React/Next.js applications.
+-   `apps/demo-web`: A reference implementation using the SDK.
+-   `packages/backend`: (Optional) Backend for more complex intent resolution.
 
 ## Getting Started
 
-1. **Install dependencies:**
-   ```bash
-   yarn install
-   ```
+To add VocalRoute to your project:
 
-2. **Configure Environment:**
-   Create a `.env` file in `packages/backend`:
-   ```env
-   OPENAI_API_KEY=your_key
-   TEXT_MODEL=gpt-4o-mini
-   ```
+### 1. Install the SDK
+```bash
+npm install @vocalroute-ai/sdk
+```
 
-3. **Run the demo application:**
-   ```bash
-   yarn demo:dev
-   ```
+### 2. Generate Route Registry
+Run the CLI to discover your application routes:
+```bash
+npx vocalroute scan
+```
 
-4. **Run the backend server:**
-   ```bash
-   yarn backend:dev
-   ```
+### 3. Initialize Provider
+Wrap your application in `app/layout.tsx`:
+```tsx
+import "@vocalroute-ai/sdk/vocalroute.css";
+import { VocalRouteProvider } from "@vocalroute-ai/sdk";
+import { staticRegistry } from "../vocalroute/registry";
 
-## Key Features
-- **Zero-Audio Backend:** No raw audio ever leaves the browser; only text transcripts are sent to the API.
-- **Organic UI:** Real-time, volume-reactive blob animations.
-- **Framework Agnostic:** Core logic is decoupled from the UI layer.
-- **Safety First:** AI is constrained to a predefined route registry to prevent hallucinations.
+export default function RootLayout({ children }) {
+  return (
+    <VocalRouteProvider routes={staticRegistry} showButton={true}>
+      {children}
+    </VocalRouteProvider>
+  );
+}
+```
+
+## Features
+
+-   **Zero-Config Route Discovery:** Automatically maps your Next.js `app` or `pages` directory.
+-   **Local processing:** Intent resolution happens in the browser—fast and secure.
+-   **Premium UI:** Real-time volume-reactive animations and a modern voice overlay.
+-   **Cross-Platform:** Works on all modern browsers supporting the Web Speech API.
+
+## Development
+
+If you are contributing to VocalRoute:
+
+1.  **Install dependencies:**
+    ```bash
+    yarn install
+    ```
+2.  **Build packages:**
+    ```bash
+    yarn build
+    ```
+3.  **Run demo:**
+    ```bash
+    yarn demo:dev
+    ```
+
+## License
+
+MIT

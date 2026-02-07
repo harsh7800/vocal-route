@@ -23,6 +23,9 @@ vocal-route/
 │       │   └── useVocalRoute.ts
 │       ├── biome.json            # Linting and formatting config
 │       ├── next.config.ts        # Next.js configuration
+│       ├── vocalroute/           # Generated route registry (via CLI)
+│       │   ├── registry.json
+│       │   └── registry.ts
 │       ├── package.json          # App dependencies
 │       └── tsconfig.json         # App TypeScript configuration
 │
@@ -34,11 +37,15 @@ vocal-route/
 │   │   │   ├── audio/              # Voice processing logic
 │   │   │   │   ├── transcriber.ts
 │   │   │   │   └── visualizer.ts
+│   │   │   ├── build/              # CLI logic and scanning
+│   │   │   │   ├── scanner.ts
+│   │   │   │   └── intent-generator.ts
 │   │   │   ├── components/         # UI Components
 │   │   │   │   ├── VoiceOverlay.tsx
 │   │   │   │   └── VocalRouteButton.tsx
-│   │   │   ├── generated/          # Auto-generated routing
+│   │   │   ├── generated/          # Auto-generated routing (internal)
 │   │   │   ├── index.ts            # Entry point
+│   │   │   ├── cli.ts              # CLI entry point
 │   │   │   ├── provider.tsx        # React Context Provider
 │   │   │   └── types.ts            # TypeScript types
 │   │   └── package.json          # SDK dependencies
