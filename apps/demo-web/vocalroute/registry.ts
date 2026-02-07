@@ -4,7 +4,7 @@ export const staticRegistry = [
     "routerType": "app",
     "params": [],
     "title": "Clients",
-    "confidence": 0.6,
+    "confidence": 0.8,
     "intents": [
       "open clients",
       "go to clients",
@@ -19,7 +19,7 @@ export const staticRegistry = [
     "routerType": "app",
     "params": [],
     "title": "Invoices",
-    "confidence": 0.6,
+    "confidence": 0.8,
     "intents": [
       "open invoices",
       "go to invoices",
@@ -34,7 +34,7 @@ export const staticRegistry = [
     "routerType": "app",
     "params": [],
     "title": "Home",
-    "confidence": 0.6,
+    "confidence": 0.8,
     "intents": [
       "open home",
       "go to home",
@@ -49,7 +49,7 @@ export const staticRegistry = [
     "routerType": "app",
     "params": [],
     "title": "Reports",
-    "confidence": 0.6,
+    "confidence": 0.8,
     "intents": [
       "open reports",
       "go to reports",
@@ -63,15 +63,15 @@ export const staticRegistry = [
     "path": "/settings",
     "routerType": "app",
     "params": [],
-    "title": "Email Notifications",
-    "confidence": 0.6,
+    "title": "Account Settings",
+    "confidence": 0.8,
     "intents": [
-      "open email notifications",
-      "go to email notifications",
-      "show email notifications",
-      "view email notifications",
-      "navigate to email notifications"
+      "open account settings",
+      "go to account settings",
+      "show account settings",
+      "view account settings",
+      "navigate to account settings"
     ],
-    "hash": "82b5b68b54f7f6cb37549b740efc3181"
+    "hash": "8d8f238a6b209e659ab8004f4f1be883"
   }
 ];

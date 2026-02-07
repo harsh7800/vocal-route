@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useRef, useState, useCallback, type ReactNode, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useParams } from 'next/navigation';
 import NextTopLoader from 'nextjs-toploader';
 import { SpeechTranscriber } from './audio/transcriber';
 import { VolumeVisualizer } from './audio/visualizer';
@@ -83,6 +83,7 @@ export function VocalRouteProvider({
       const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
       const router = useRouter();
       const pathname = usePathname();
+      const currentParams = useParams();
 
       useEffect(() => {
             if (typeof window === 'undefined') return;
@@ -158,6 +159,16 @@ export function VocalRouteProvider({
                               if (targetRoute) {
                                     // Handle parameter injection
                                     let finalPath = targetRoute.path;
+
+                                    // 1. Fill from current context (structural params like [locale])
+                                    if (currentParams) {
+                                          for (const [key, value] of Object.entries(currentParams)) {
+                                                const val = Array.isArray(value) ? value.join('/') : String(value);
+                                                finalPath = finalPath.replace(`[${key}]`, val);
+                                          }
+                                    }
+
+                                    // 2. Fill from intent-extracted params (business params like [adId])
                                     if (intent.params) {
                                           for (const [key, value] of Object.entries(intent.params)) {
                                                 finalPath = finalPath.replace(`[${key}]`, value);
@@ -188,7 +199,7 @@ export function VocalRouteProvider({
                   setError("Something went wrong. Please try again.");
                   setIsProcessing(false);
             }
-      }, [registry, router]);
+      }, [registry, router, currentParams]);
 
 
       const startListening = async () => {

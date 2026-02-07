@@ -7,10 +7,21 @@ import * as fs from "fs";
 async function scan() {
   const projectRoot = process.cwd();
 
+  // Parse arguments
+  const args = process.argv.slice(3);
+  const skipIndex = args.indexOf("--skip");
+  let skipSegments: string[] = [];
+  if (skipIndex !== -1 && args[skipIndex + 1]) {
+    skipSegments = args[skipIndex + 1].split(",").map((s) => s.trim());
+  }
+
   console.log("🚀 [VocalRoute] Scanning project for routes...");
+  if (skipSegments.length > 0) {
+    console.log(`ℹ️  Skipping segments: ${skipSegments.join(", ")}`);
+  }
 
   // 1. Discover routes
-  const scanner = new RouteScanner(projectRoot);
+  const scanner = new RouteScanner(projectRoot, skipSegments);
   const discovered = scanner.scan();
 
   if (discovered.length === 0) {
@@ -53,8 +64,12 @@ function printHelp() {
 VocalRoute AI SDK CLI
 
 Usage:
-  npx vocalroute scan    Scan routes and generate intent registry
-  npx vocalroute --help  Show this help message
+  npx vocalroute scan                Scan routes and generate intent registry
+  npx vocalroute scan --skip locale  Scan and skip specific segments from registry paths
+  npx vocalroute --help              Show this help message
+
+Options:
+  --skip <segments>   Comma-separated list of segments to skip in logical paths (e.g. "locale,shopId")
 `);
 }
 
