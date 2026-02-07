@@ -138,9 +138,11 @@ export function resolveLocalIntent(
 
   // Helper for word boundary matching
   const matchesWord = (text: string, phrase: string) => {
-    const regex = new RegExp(`\\b${phrase}\\b`, "i");
+    // Escape special regex characters in the phrase
+    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(`\\b${escaped}\\b`, "i");
     return regex.test(text);
-  };
+  };;
 
   for (const route of registry) {
     let score = 0;

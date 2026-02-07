@@ -159,8 +159,16 @@ export class RouteScanner {
       // 2. Try <h1> tags
       const h1Match = content.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
       if (h1Match) {
-        const text = h1Match[1].replace(/<[^>]*>/g, "").trim();
-        if (text) return text;
+        let text = h1Match[1].replace(/<[^>]*>/g, "").trim();
+        // Skip if text looks like a code expression (e.g. {t('title')})
+        if (
+          text &&
+          !text.includes("{") &&
+          !text.includes("}") &&
+          !text.includes("=>")
+        ) {
+          return text;
+        }
       }
 
       // 3. Infer from route path

@@ -1,6 +1,6 @@
 {
   "name": "@vocalroute-ai/sdk",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Voice navigation and AI assistance toolkit for Next.js applications",
   "author": "VocalRoute Team",
   "license": "MIT",
