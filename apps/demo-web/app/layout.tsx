@@ -39,7 +39,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#f7f7f7] dark:bg-[#191919] text-[#1a1a1a] dark:text-white transition-colors duration-200`}
       >
         <VocalRouteProvider
-          overlayConfig={{ themeColor: 'cyan', title: 'How can I help?' }}
+          overlayConfig={{ themeColor: 'cyan', title: 'How can I help?' , type: 'global' }}
           showButton={true}
         >
           <div className="flex min-h-screen">
