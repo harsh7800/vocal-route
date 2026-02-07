@@ -9,7 +9,7 @@ import { BrowserTTS } from './audio/tts';
 import { staticRegistry } from './generated/registry';
 import { VoiceOverlay } from './components/VoiceOverlay';
 import { VocalRouteButton } from './components/VocalRouteButton';
-import { resolveLocalIntent } from './ai/resolver';
+import { resolveLocalIntent, resolveIntent } from './ai/resolver';
 import type { VocalIntent, RouteRegistry } from './types';
 
 
@@ -56,6 +56,16 @@ interface ProviderProps {
             className?: string;
             children?: React.ReactNode;
       };
+      /**
+       * AI Configuration for model selection and fallbacks.
+       */
+      aiConfig?: {
+            enabled?: boolean;
+            openaiApiKey?: string;
+            intentModel?: string;
+            transcriptModel?: string;
+            fallbackToLocal?: boolean;
+      };
 }
 export function VocalRouteProvider({ 
       children,
@@ -64,6 +74,7 @@ export function VocalRouteProvider({
       overlayConfig,
       showButton = false,
       buttonConfig,
+      aiConfig,
 }: ProviderProps) {
       const [isListening, setIsListening] = useState(false);
       const [isProcessing, setIsProcessing] = useState(false);
@@ -121,10 +132,34 @@ export function VocalRouteProvider({
       const processIntent = useCallback(async (text: string) => {
             setIsProcessing(true);
             try {
-                  // Use the local resolver for backend-free operation
-                  const intent = resolveLocalIntent(text, registry);
+                  let intent: VocalIntent;
 
-                  console.log('🧠 Intent result (local):', intent);
+                  // 1. Try AI Resolution if enabled and API Key is present
+                  if (aiConfig?.enabled && aiConfig?.openaiApiKey) {
+                        try {
+                              intent = await resolveIntent(text, registry, {
+                                    openaiApiKey: aiConfig.openaiApiKey,
+                                    intentSummaryModel: aiConfig.intentModel,
+                                    transcriptModel: aiConfig.transcriptModel,
+                              });
+
+                              // If AI confidence is low, we might still want to try local as a safety net
+                              if (intent.intent === 'unknown' || intent.confidence < 0.5) {
+                                    const localIntent = resolveLocalIntent(text, registry);
+                                    if (localIntent.confidence > intent.confidence) {
+                                          intent = localIntent;
+                                    }
+                              }
+                        } catch (e) {
+                              console.warn("⚠️ AI Intent resolution failed, falling back to local:", e);
+                              intent = resolveLocalIntent(text, registry);
+                        }
+                  } else {
+                        // 2. Default to Local Resolution (Backend-free)
+                        intent = resolveLocalIntent(text, registry);
+                  }
+
+                  console.log('🧠 Intent result:', intent);
 
                   setTranscript(intent.transcript);
                   setConfidence(intent.confidence);
@@ -143,16 +178,16 @@ export function VocalRouteProvider({
                                     setIsSpeaking(false);
                                     // Navigate only after speech if it's a navigation intent
                                     if (intent.intent === 'navigate' && intent.target && intent.confidence >= 0.7) {
-                                          finishNavigation();
+                                          finishNavigation(intent);
                                     }
                               }
                         );
                   } else {
                         // Fallback if no reply provided
-                        finishNavigation();
+                        finishNavigation(intent);
                   }
 
-                  function finishNavigation() {
+                  function finishNavigation(intent: VocalIntent) {
                         if (intent.intent === 'navigate' && intent.target && intent.confidence >= 0.7) {
                               const targetRoute = registry.find(r => r.path === intent.target);
 
@@ -199,7 +234,7 @@ export function VocalRouteProvider({
                   setError("Something went wrong. Please try again.");
                   setIsProcessing(false);
             }
-      }, [registry, router, currentParams]);
+      }, [registry, router, currentParams, aiConfig]);
 
 
       const startListening = async () => {

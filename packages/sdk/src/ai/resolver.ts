@@ -7,6 +7,8 @@ export interface ResolveIntentOptions {
   intentSummaryModel?: string;
 }
 
+const FALLBACK_MODELS = ["gpt-4o-mini", "gpt-3.5-turbo"];
+
 export async function resolveIntent(
   transcript: string,
   registry: RouteRegistry,
@@ -66,58 +68,88 @@ Respond in this exact JSON format:
 }
 `;
 
+  // 1. Optional Transcript Correction with Fallback
   if (options.transcriptModel) {
-    try {
-      const correction = await openai.chat.completions.create({
-        model: options.transcriptModel,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a specialized speech correction engine. Your task is to correct any phonetic errors, distinct slurring, or context-missed words in the provided transcript to make it suitable for a navigation intent processor. Return ONLY the corrected text.",
-          },
-          { role: "user", content: transcript },
-        ],
-      });
-      const correctedText = correction.choices[0].message.content;
-      if (correctedText) {
-        transcript = correctedText.trim();
+    let currentModel = options.transcriptModel;
+    let success = false;
+    const triedModels = [currentModel, ...FALLBACK_MODELS];
+
+    for (const model of triedModels) {
+      try {
+        const correction = await openai.chat.completions.create({
+          model,
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a specialized speech correction engine. Your task is to correct any phonetic errors, distinct slurring, or context-missed words in the provided transcript to make it suitable for a navigation intent processor. Return ONLY the corrected text.",
+            },
+            { role: "user", content: transcript },
+          ],
+        });
+        const correctedText = correction.choices[0].message.content;
+        if (correctedText) {
+          transcript = correctedText.trim();
+          success = true;
+          break;
+        }
+      } catch (e: any) {
+        if (e.status === 404 || e.status === 403) {
+          console.warn(`⚠️ Model ${model} unavailable, trying fallback...`);
+          continue;
+        }
+        console.warn(
+          `⚠️ Transcript correction failed for ${model}:`,
+          e.message,
+        );
+        break;
       }
-    } catch (e) {
-      console.warn(
-        "⚠️ Transcript correction failed, proceeding with original:",
-        e,
-      );
     }
   }
 
-  try {
-    const completion = await openai.chat.completions.create({
-      model: options.intentSummaryModel || "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
-    });
+  // 2. Intent Resolution with Fallback
+  let targetModel = options.intentSummaryModel || "gpt-4o-mini";
+  const modelQueue = [
+    targetModel,
+    ...FALLBACK_MODELS.filter((m) => m !== targetModel),
+  ];
 
-    const raw = completion.choices[0].message.content;
+  for (const model of modelQueue) {
+    try {
+      const completion = await openai.chat.completions.create({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        response_format: { type: "json_object" },
+      });
 
-    if (!raw) {
-      return { transcript, intent: "unknown", target: null, confidence: 0 };
+      const raw = completion.choices[0].message.content;
+
+      if (!raw) {
+        return { transcript, intent: "unknown", target: null, confidence: 0 };
+      }
+
+      const result = JSON.parse(raw);
+
+      return {
+        ...result,
+        transcript,
+      } as VocalIntent;
+    } catch (error: any) {
+      if (error.status === 404 || error.status === 403) {
+        console.warn(
+          `⚠️ Intent model ${model} unavailable, trying fallback...`,
+        );
+        continue;
+      }
+      console.error(`❌ VocalRoute AI Error (${model}):`, error.message);
+      break;
     }
-
-    const result = JSON.parse(raw);
-
-    // Ensure transcript is included in the response
-    return {
-      ...result,
-      transcript,
-    } as VocalIntent;
-  } catch (error) {
-    console.error("❌ VocalRoute AI Error:", error);
-    return { transcript, intent: "unknown", target: null, confidence: 0 };
   }
+
+  return { transcript, intent: "unknown", target: null, confidence: 0 };
 }
 
 /**

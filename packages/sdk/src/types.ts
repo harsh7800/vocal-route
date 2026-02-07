@@ -22,4 +22,11 @@ export type VocalIntent = {
 export type VocalRouteConfig = {
   apiUrl?: string;
   routes?: RouteRegistry;
+  ai?: {
+    enabled?: boolean;
+    openaiApiKey?: string;
+    intentModel?: string;
+    transcriptModel?: string;
+    fallbackToLocal?: boolean;
+  };
 };
