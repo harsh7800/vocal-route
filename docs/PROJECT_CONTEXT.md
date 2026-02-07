@@ -1,186 +1,53 @@
 🔊 VocalRoute — Project Summary (Context for AI / Agent)
-What has been built so far
-1. Core Goal (Current Phase)
 
-VocalRoute enables voice-based navigation inside a web application, where users can say things like:
-
-“Take me to invoices”
-
-“Go to dashboard”
-
-“Open analytics”
-
-The system:
-
-understands spoken audio
-
-converts speech → text
-
-understands user intent
-
-navigates only to pages that actually exist in the user’s project
-
-safely rejects non-existent pages
-
-2. Architecture Overview
-Frontend (Next.js App)
-
-Uses a VocalRoute SDK
-
-Provides UI to:
-
-start listening
-
-stop listening
-
-Handles navigation based on backend responses
-
-Frontend is intentionally dumb
-
-No AI logic
-
-No intent logic
-
-Only reacts to backend responses
-
-SDK (Client-side, Browser-safe)
-
-Responsible for:
-
-capturing microphone audio
-
-streaming audio chunks via WebSocket
-
-sending a final audio-stop event
-
-Will receive explicit navigation context from the app (pages, routes)
-
-SDK does not:
-
-scan files
-
-infer project structure
-
-contain secrets
-
-SDK acts as a transport + context carrier
-
-Backend (Node.js + WebSocket)
-
-Owns all intelligence
-
-Handles:
-
-WebSocket connections
-
-per-connection session lifecycle
-
-audio chunk buffering
-
-safety guards (timeouts, max chunks, ordering)
-
-On audio-stop:
-
-Combines audio chunks into a single audio file
-
-Sends audio to OpenAI Speech-to-Text
-
-Receives transcript
-
-Sends transcript to AI Intent Extraction
-
-Returns structured intent response to frontend
-
-3. Audio Pipeline (Confirmed Working)
-Microphone
- → AudioRecorder (SDK)
- → WebSocket audio chunks
- → Backend session buffer
- → Final audio file
- → OpenAI STT
- → Transcript
-
-
-This pipeline is fully functional and stable.
-
-4. AI Pipeline (Confirmed Working)
-AI Layer 1 — Speech to Text
-
-Uses OpenAI transcription models (currently mini variants for cost)
-
-Converts finalized audio → transcript
-
-AI Layer 2 — Intent Extraction
-
-Takes transcript + allowed routes
-
-Returns:
-
-intent type
-
-target page (if exists)
-
-confidence
-
-Guardrails ensure:
-
-no hallucinated pages
-
-unknown pages return intent: unknown
-
-Example output:
-
-{
-  "intent": "navigate",
-  "target": "invoices",
-  "confidence": 0.92
-}
-
-
-Or:
-
-{
-  "intent": "unknown",
-  "target": null,
-  "confidence": 0.2
-}
-
-5. Safety & Reliability Features
-
-One session per WebSocket connection
-
-Max audio chunk limit
-
-Session timeout
-
-Strict message ordering
-
-Rejects audio chunks before audio-start
-
-Gracefully handles empty or failed transcripts
-
-No filesystem scanning
-
-No AI hallucination risk
-
-6. Key Design Principle (Very Important)
-
-The AI never guesses the project structure.
-
-Instead:
-
-The user’s app explicitly provides navigation context (pages & routes)
-
-The SDK passes this context to the backend
-
-The backend constrains AI strictly to that context
-
-This ensures:
-
-accuracy
-
-safety
-
-predictability
-
-framework agnosticism
+## What has been built so far
+
+### 1. Core Goal (Current Phase)
+VocalRoute enables voice-based navigation inside a web application. Users can navigate by voice:
+- “Take me to invoices”
+- “Go to dashboard”
+- “Open analytics”
+
+The system handles the full pipeline from hearing the user to performing the page redirection, with rich visual feedback.
+
+### 2. Architecture Overview (Stateless HTTP Model)
+
+#### Frontend (Next.js App)
+- Uses the **VocalRoute SDK**.
+- Provides a rich, organic UI overlay (`OrganicVoiceOverlay`) for real-time feedback.
+- **Intentionally lean:** Only defines routes and reacts to SDK/Backend responses.
+
+#### SDK (Client-side hub)
+- **Transcription (STT):** Handles speech-to-text entirely in the browser using the Web Speech API (`SpeechTranscriber`). No raw audio is sent to the server.
+- **Visual Feedback:** Analyzes microphone levels locally (`VolumeVisualizer`) to drive a "liquid wobble" blob animation.
+- **Navigation:** Orchestrates the intent flow and handles the physical redirection using `next/navigation`.
+- **Stateless Communication:** Sends the final transcript to the backend via a simple HTTP POST request.
+- **UX Polish:** Integrated `nextjs-toploader` for automatic navigation progress indicators.
+
+#### Backend (Node.js Stateless API)
+- **Stateless:** No persistent connections, sessions, or heartbeats.
+- **Intent Extraction:** Receives the transcript and available routes, then uses OpenAI to map the text to a specific route ID.
+- **Predictable:** strictly returns structured JSON with the intent, target, and confidence score.
+
+### 3. Navigation Pipeline (Optimized)
+1. **Microphone Capture** (Browser)
+2. **Local Transcription** (Web Speech API)
+3. **Volume Analysis** (Web Audio API -> Visual Wobble)
+4. **Final Transcript** -> HTTP POST (Backend)
+5. **Intent Resolution** (OpenAI -> Target Route)
+6. **Execution** (Next.js Router + TopLoader)
+
+This pipeline is optimized for speed and scalability, removing the complexity of WebSocket session management.
+
+### 4. AI Pipeline
+- **AI Layer 1 — Speech to Text:** Optimized through browser-native Web Speech API (zero latency, zero server cost).
+- **AI Layer 2 — Intent Extraction:** Backend-side OpenAI call. Takes the transcript + explicit route registry to ensure no hallucinations.
+
+### 5. UI & Feedback Features
+- **Organic Visualizer:** A "liquid wobble" blob that grows and agitates based on voice volume.
+- **Explicit States:** The UI clearly distinguishes between *Listening*, *Speaking* (detected voice), *Thinking* (API processing), and *Understood* (Success).
+- **Retry Logic:** Integrated "Try Again" button for when commands aren't recognized or errors occur.
+- **Toploader:** Automatic progress bar at the top of the screen during redirections.
+
+### 6. Key Design Principle
+The AI never guesses the project structure. The application explicitly provides a route registry, and the backend constrains the AI's output strictly to that registry. This ensure 100% accuracy and prevents the AI from suggesting non-existent pages.

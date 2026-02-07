@@ -32,15 +32,17 @@ Core Features
 
 Voice-based navigation
 
-Speech-to-text transcription
+Browser-native Speech-to-text transcription (STT)
 
-AI-based intent extraction
+AI-based intent extraction (Stateless Backend)
 
 Project-aware routing
 
 Explicit developer-provided navigation context
 
 Safe handling of non-existent pages
+
+Organic visual feedback & retry logic via SDK
 
 Minimal frontend integration via SDK
 

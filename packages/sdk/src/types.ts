@@ -1,18 +1,24 @@
-export type RouteDefinition = {
-  id: string;
+export type RouteEntry = {
   path: string;
-  aliases?: string[];
-  description?: string;
+  title?: string;
+  intents: string[];
+  params?: Record<string, string>;
+  confidence: number;
+  observed?: boolean;
+  routerType?: "app" | "pages";
 };
+
+export type RouteRegistry = RouteEntry[];
 
 export type VocalIntent = {
   intent: "navigate" | "unknown";
   target: string | null;
   confidence: number;
   transcript: string;
+  params?: Record<string, string>;
 };
 
 export type VocalRouteConfig = {
   apiUrl?: string;
-  routes: RouteDefinition[];
+  routes?: RouteRegistry;
 };

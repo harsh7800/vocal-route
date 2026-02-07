@@ -40,3 +40,6 @@ next-env.d.ts
 
 # backend
 tmp
+# vocalroute
+vocalroute-cache.json
+packages/sdk/src/generated/

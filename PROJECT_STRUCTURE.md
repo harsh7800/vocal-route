@@ -29,11 +29,15 @@ vocal-route/
 ├── packages/
 │   ├── sdk/                      # Core Vocal Route SDK
 │   │   ├── src/
-│   │   │   ├── audio/              # Microcapture / Audio logic
-│   │   │   │   └── recorder.ts
-│   │   │   ├── registry/           # Route mapping
-│   │   │   │   └── routeMap.ts
-│   │   │   ├── client.ts           # WebSocket/HTTP Clients
+│   │   │   ├── ai/                 # AI / Intent resolution logic
+│   │   │   │   └── resolver.ts
+│   │   │   ├── audio/              # Voice processing logic
+│   │   │   │   ├── transcriber.ts
+│   │   │   │   └── visualizer.ts
+│   │   │   ├── components/         # UI Components
+│   │   │   │   ├── VoiceOverlay.tsx
+│   │   │   │   └── VocalRouteButton.tsx
+│   │   │   ├── generated/          # Auto-generated routing
 │   │   │   ├── index.ts            # Entry point
 │   │   │   ├── provider.tsx        # React Context Provider
 │   │   │   └── types.ts            # TypeScript types
