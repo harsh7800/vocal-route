@@ -170,8 +170,8 @@ export function VoiceOverlay({
                     height: 4 + (frequencies[i] || 0) * 28,
                     backgroundColor:
                       (frequencies[i] || 0) > 0.5
-                        ? "hsl(var(--glow-cyan))"
-                        : "hsl(var(--muted-foreground) / 0.3)",
+                        ? (themeColor === 'purple' ? '#a855f7' : themeColor === 'blue' ? '#3b82f6' : '#06b6d4')
+                        : "rgba(163, 163, 163, 0.3)",
                   }}
                   transition={{ type: "spring", stiffness: 300, damping: 20 }}
                   style={{ width: 3, borderRadius: 2 }}
@@ -294,7 +294,7 @@ export function VoiceOverlay({
             }}
             aria-label="Close"
           >
-            <span className="material-symbols-outlined" style={{ fontSize: '1.25rem' }}>close</span>
+            <CloseIcon size={20} />
           </button>
         </div>
 

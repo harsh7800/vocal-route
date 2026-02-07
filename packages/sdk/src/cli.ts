@@ -1,0 +1,79 @@
+#!/usr/bin/env node
+import { RouteScanner } from "./build/scanner";
+import { IntentGenerator } from "./build/intent-generator";
+import * as path from "path";
+import * as fs from "fs";
+
+async function scan() {
+  const projectRoot = process.cwd();
+
+  console.log("🚀 [VocalRoute] Scanning project for routes...");
+
+  // 1. Discover routes
+  const scanner = new RouteScanner(projectRoot);
+  const discovered = scanner.scan();
+
+  if (discovered.length === 0) {
+    console.warn(
+      "⚠️  No routes discovered. Make sure you are running this in the root of your Next.js project.",
+    );
+    return;
+  }
+
+  console.log(`📡 Discovered ${discovered.length} routes.`);
+
+  // 2. Generate intents (and cache)
+  const generator = new IntentGenerator(projectRoot);
+  const registry = await generator.generate(discovered);
+  console.log("🤖 Intents generated.");
+
+  // 3. Save registry
+  const outDir = path.resolve(projectRoot, "vocalroute");
+  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+
+  const jsonPath = path.join(outDir, "registry.json");
+  const tsPath = path.join(outDir, "registry.ts");
+
+  fs.writeFileSync(jsonPath, JSON.stringify(registry, null, 2));
+  fs.writeFileSync(
+    tsPath,
+    `export const staticRegistry = ${JSON.stringify(registry, null, 2)};`,
+  );
+
+  console.log(`✅ Registry saved to:`);
+  console.log(`   - ${jsonPath}`);
+  console.log(`   - ${tsPath}`);
+  console.log(
+    `\n💡 You can now import this registry in your VocalRouteProvider.`,
+  );
+}
+
+function printHelp() {
+  console.log(`
+VocalRoute AI SDK CLI
+
+Usage:
+  npx vocalroute scan    Scan routes and generate intent registry
+  npx vocalroute --help  Show this help message
+`);
+}
+
+const command = process.argv[2];
+
+switch (command) {
+  case "scan":
+    scan().catch((err) => {
+      console.error("❌ Error during scan:", err);
+      process.exit(1);
+    });
+    break;
+  case "--help":
+  case "-h":
+  case undefined:
+    printHelp();
+    break;
+  default:
+    console.error(`Unknown command: ${command}`);
+    printHelp();
+    process.exit(1);
+}

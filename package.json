@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "demo:dev": "yarn workspace @vocalroute/demo-web dev",
-    "sdk:build": "yarn workspace vocalroute-sdk build",
+    "sdk:build": "yarn workspace @vocalroute-ai/sdk build",
     "backend:dev": "yarn workspace @vocalroute/backend dev",
     "lint": "yarn workspaces run lint",
     "format": "yarn workspaces run format"
