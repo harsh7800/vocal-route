@@ -18,6 +18,7 @@ export type ContextType = {
       transcript: string;
       confidence: number;
       volume: number;
+      frequencies?: number[];
       error: string | null;
       registry: RouteRegistry;
       startListening: () => Promise<void>;
@@ -66,12 +67,14 @@ export function VocalRouteProvider({
       const [transcript, setTranscript] = useState('');
       const [confidence, setConfidence] = useState(1);
       const [volume, setVolume] = useState(0);
+      const [frequencies, setFrequencies] = useState<number[]>([]);
       const [error, setError] = useState<string | null>(null);
 
       const [registry, setRegistry] = useState<RouteRegistry>(routes);
 
       const transcriberRef = useRef<SpeechTranscriber | null>(null);
       const visualizerRef = useRef<VolumeVisualizer | null>(null);
+      const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
       const router = useRouter();
       const pathname = usePathname();
 
@@ -177,19 +180,39 @@ export function VocalRouteProvider({
                   visualizerRef.current = new VolumeVisualizer();
             }
 
-            visualizerRef.current.start((v) => setVolume(v));
+            visualizerRef.current.start((v) => {
+                  setVolume((prev) => {
+                        // Smooth the volume transition: 0.8 * old + 0.2 * new
+                        // This prevents jagged movements in the UI
+                        return prev * 0.8 + v * 0.2;
+                  });
+            }, (freqs) => {
+                  setFrequencies(freqs);
+            });
 
             transcriberRef.current.start((text: string, isFinal: boolean) => {
                   setTranscript(text);
-                  if (isFinal) {
+
+                  // Clear any existing silence timer
+                  if (silenceTimeoutRef.current) {
+                        clearTimeout(silenceTimeoutRef.current);
+                  }
+
+                  // Set a new silence timer. 
+                  // If no new speech is detected for 1.5s, we consider the command finished.
+                  // We ignore 'isFinal' from the API because it can be too aggressive with pauses.
+                  silenceTimeoutRef.current = setTimeout(() => {
                         transcriberRef.current?.stop();
                         visualizerRef.current?.stop();
                         processIntent(text);
-                  }
+                  }, 1500);
             });
       };
 
       const stopListening = async () => {
+            if (silenceTimeoutRef.current) {
+                  clearTimeout(silenceTimeoutRef.current);
+            }
             setIsListening(false);
             setIsProcessing(false);
             transcriberRef.current?.stop();
@@ -203,6 +226,7 @@ export function VocalRouteProvider({
                   transcript,
                   confidence,
                   volume,
+                  frequencies,
                   error,
                   registry,
                   startListening,
@@ -217,6 +241,7 @@ export function VocalRouteProvider({
                               transcript={transcript}
                               error={error}
                               volume={volume}
+                              frequencies={frequencies}
                               onClose={stopListening}
                               onRetry={startListening}
                               themeColor={overlayConfig?.themeColor}

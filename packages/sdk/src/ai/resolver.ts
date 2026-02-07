@@ -156,9 +156,37 @@ export function resolveLocalIntent(
     }
 
     // 3. Check path matches (semantic-ish)
+    // 3. Check path matches (semantic-ish)
+    // Handle "clients" matching "client page" or "client"
     const pathSlug = route.path.split("/").pop()?.toLowerCase();
-    if (pathSlug && pathSlug.length > 2 && normalizedTranscript.includes(pathSlug)) {
-      maxRouteConfidence = Math.max(maxRouteConfidence, 0.7);
+
+    if (pathSlug && pathSlug.length > 2) {
+      // Direct match
+      if (normalizedTranscript.includes(pathSlug)) {
+        maxRouteConfidence = Math.max(maxRouteConfidence, 0.75);
+      }
+
+      // Singular/Plural handling (e.g. route: "invoices", transcript: "invoice")
+      const singularSlug = pathSlug.endsWith("s")
+        ? pathSlug.slice(0, -1)
+        : pathSlug;
+      if (normalizedTranscript.includes(singularSlug)) {
+        maxRouteConfidence = Math.max(maxRouteConfidence, 0.7);
+      }
+
+      // Split slug handling (e.g. route: "user-profile", transcript: "user profile")
+      const spacedSlug = pathSlug.replace(/-/g, " ");
+      if (normalizedTranscript.includes(spacedSlug)) {
+        maxRouteConfidence = Math.max(maxRouteConfidence, 0.7);
+      }
+
+      // Reverse split handling (e.g. route: "settings", transcript: "setting")
+      const singularSpaced = spacedSlug.endsWith("s")
+        ? spacedSlug.slice(0, -1)
+        : spacedSlug;
+      if (normalizedTranscript.includes(singularSpaced)) {
+        maxRouteConfidence = Math.max(maxRouteConfidence, 0.7);
+      }
     }
 
     if (maxRouteConfidence > (bestMatch?.confidence || 0)) {

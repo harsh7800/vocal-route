@@ -7,7 +7,10 @@ export class VolumeVisualizer {
   private animationFrame?: number;
   private isAnalyzing = false;
 
-  async start(onVolume: (volume: number) => void) {
+  async start(
+    onVolume: (volume: number) => void,
+    onFrequencies?: (frequencies: number[]) => void,
+  ) {
     if (this.isAnalyzing) return;
 
     try {
@@ -23,6 +26,8 @@ export class VolumeVisualizer {
       this.source = this.audioContext.createMediaStreamSource(this.stream);
 
       this.analyser.fftSize = 256;
+      // Smooth the frequency data transition
+      this.analyser.smoothingTimeConstant = 0.8;
       this.source.connect(this.analyser);
 
       const bufferLength = this.analyser.frequencyBinCount;
@@ -36,15 +41,31 @@ export class VolumeVisualizer {
 
         analyser.getByteFrequencyData(this.dataArray as any);
 
-        // Calculate average volume
-        let sum = 0;
-        for (let i = 0; i < this.dataArray.length; i++) {
-          sum += this.dataArray[i];
-        }
-        const average = sum / this.dataArray.length;
+        // Calculate RMS (Root Mean Square) for better loudness perception
+        let sumSquares = 0;
+        const currentFrequencies: number[] = [];
 
-        // Normalize to 0-1
-        onVolume(average / 128);
+        for (let i = 0; i < this.dataArray.length; i++) {
+          const normalized = this.dataArray[i] / 255;
+          sumSquares += normalized * normalized;
+
+          if (onFrequencies && i < 32) {
+            // Only capture lower frequencies for visuals
+            currentFrequencies.push(normalized);
+          }
+        }
+
+        if (onFrequencies) {
+          onFrequencies(currentFrequencies);
+        }
+
+        const rms = Math.sqrt(sumSquares / this.dataArray.length);
+
+        // Boost the signal non-linearly to make quiet speech visible
+        // Power 0.6 makes low volumes larger, multiplier 2.0 scales it up
+        const boostedVolume = Math.pow(rms, 0.6) * 2.0;
+
+        onVolume(Math.min(1, boostedVolume));
 
         this.animationFrame = requestAnimationFrame(analyze);
       };
@@ -62,9 +83,9 @@ export class VolumeVisualizer {
       this.audioContext.close().catch(console.error);
     }
     if (this.stream) {
-        this.stream.getTracks().forEach(track => {
-            track.stop();
-        });
+      this.stream.getTracks().forEach((track) => {
+        track.stop();
+      });
     }
   }
 }
