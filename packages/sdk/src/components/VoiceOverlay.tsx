@@ -1,6 +1,8 @@
 'use client';
 
-import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { VoiceOrb } from './VoiceOrb';
+import { X as CloseIcon, RefreshCcw as RetryIcon } from 'lucide-react';
 
 export interface VoiceOverlayProps {
   isListening: boolean;
@@ -10,6 +12,7 @@ export interface VoiceOverlayProps {
   error?: string | null;
   confidence?: number;
   volume?: number;
+  frequencies?: number[];
   onClose?: () => void;
   onRetry?: () => void;
   // Customization options
@@ -24,18 +27,195 @@ export function VoiceOverlay({
   transcript,
   error,
   onClose,
+  onRetry,
   title,
   volume = 0,
-  type = 'compact'
+  frequencies = [],
+  type = 'compact',
+  themeColor = 'cyan'
 }: VoiceOverlayProps) {
-  if (!isListening && !isProcessing) return null;
-
   const isGlobal = type === 'global';
+  const show = isListening || isProcessing || !!error;
 
+  // Use AnimatePresence for mount/unmount animations.
+  // We wrap the whole component in AnimatePresence at the usage site or handle "show" internally.
+  // Since the parent conditionally renders this component based on isListening/isProcessing, 
+  // we might miss exit animations unless the parent keeps it mounted. 
+  // Ideally, the parent should keep it mounted and pass `open` state.
+  // However, given the current structure:
+  if (!show) return null;
+
+  if (isGlobal) {
+    return (
+      <AnimatePresence>
+        {show && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.35 }}
+            className="vocal-overlay-global fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/95 backdrop-blur-xl"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(0, 0, 0, 0.65)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)'
+            }}
+          >
+            {/* Close button */}
+            <motion.button
+              onClick={onClose}
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              style={{
+                position: 'absolute',
+                top: '1.5rem',
+                right: '1.5rem',
+                display: 'flex',
+                height: '2.5rem',
+                width: '2.5rem',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '9999px',
+                color: 'rgba(255,255,255,0.7)',
+                background: 'rgba(255,255,255,0.1)',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+              whileHover={{ scale: 1.1, backgroundColor: 'rgba(255,255,255,0.2)', color: '#fff' }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <CloseIcon size={20} />
+            </motion.button>
+
+            {/* Status text */}
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              style={{
+                marginBottom: '3rem',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: 'rgba(255,255,255,0.6)'
+              }}
+            >
+              {error ? "Error" : isProcessing ? "Processing..." : title || "Listening..."}
+            </motion.p>
+
+            {/* Orb */}
+            <motion.div
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 150, damping: 18 }}
+            >
+              <VoiceOrb
+                volume={volume}
+                frequencies={frequencies}
+                isListening={!isProcessing && !error}
+                themeColor={themeColor as any}
+              />
+            </motion.div>
+
+            {/* Transcript / Error Display */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              style={{
+                marginTop: '3rem',
+                padding: '0 2rem',
+                maxWidth: '40rem',
+                width: '100%',
+                textAlign: 'center'
+              }}
+            >
+              {error ? (
+                <p style={{ fontSize: '1.125rem', color: '#f87171' }}>{error}</p>
+              ) : transcript ? (
+                <p style={{ fontSize: '1.5rem', fontWeight: 500, color: '#ffffff' }}>"{transcript}"</p>
+              ) : (
+                <p style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.4)' }}>
+                  Say "Go to settings" or "Create a new post"
+                </p>
+              )}
+            </motion.div>
+
+            {/* Volume indicator */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="mt-10 flex items-center gap-1"
+            >
+              {Array.from({ length: 20 }).map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="rounded-full"
+                  animate={{
+                    height: 4 + (frequencies[i] || 0) * 28,
+                    backgroundColor:
+                      (frequencies[i] || 0) > 0.5
+                        ? "hsl(var(--glow-cyan))"
+                        : "hsl(var(--muted-foreground) / 0.3)",
+                  }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                  style={{ width: 3, borderRadius: 2 }}
+                />
+              ))}
+            </motion.div>
+
+
+
+            {/* Global Retry Button */}
+            {error && onRetry && (
+              <motion.button
+                onClick={onRetry}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                style={{
+                  marginTop: '2rem',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '9999px',
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: 500
+                }}
+                whileHover={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <RetryIcon size={16} />
+                Try Again
+              </motion.button>
+            )}
+
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  }
+
+  // Compact Version (Existing)
   return (
     <div
-      className={`vocal-route-overlay ${isGlobal ? 'vocal-overlay-global' : ''}`}
-      style={!isGlobal ? {
+      className="vocal-route-overlay"
+      style={{
         position: 'fixed',
         bottom: '1.5rem',
         left: '50%',
@@ -45,10 +225,9 @@ export function VoiceOverlay({
         zIndex: 9999,
         paddingLeft: '1rem',
         paddingRight: '1rem',
-        display: (isListening || isProcessing) ? 'block' : 'none'
-      } : undefined}
+        display: show ? 'block' : 'none'
+      }}
     >
-
       <div
         className="vocal-overlay-enter vocal-route-overlay-container"
         style={{
@@ -161,6 +340,30 @@ export function VoiceOverlay({
           )}
         </div>
       </div>
+
+      {/* Compact Retry Button */}
+      {error && onRetry && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '0.5rem' }}>
+          <button
+            onClick={onRetry}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#64748b',
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              cursor: 'pointer',
+              padding: '0.25rem 0.5rem',
+              borderRadius: '0.25rem'
+            }}
+          >
+            <RetryIcon size={14} />
+            Try again
+          </button>
+        </div>
+      )}
     </div>
   );
 }
