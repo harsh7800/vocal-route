@@ -15,6 +15,7 @@ export interface VoiceOverlayProps {
   // Customization options
   themeColor?: 'cyan' | 'blue' | 'purple';
   title?: string;
+  type?: 'compact' | 'global';
 }
 
 export function VoiceOverlay({
@@ -23,82 +24,138 @@ export function VoiceOverlay({
   transcript,
   error,
   onClose,
-  title
+  title,
+  volume = 0,
+  type = 'compact'
 }: VoiceOverlayProps) {
   if (!isListening && !isProcessing) return null;
 
-  return (
-    <div className="vocal-route-overlay fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-xl z-[9999] px-4">
-      {/* Inject styles */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
-                @keyframes vocal-waveform {
-                  0%, 100% { height: 20%; }
-                  50% { height: 80%; }
-                }
-                .vocal-animate-waveform-bar {
-                  animation: vocal-waveform 0.8s ease-in-out infinite;
-                }
-                .vocal-overlay-enter {
-                  animation: vocal-slide-up 0.3s ease-out forwards;
-                }
-                @keyframes vocal-slide-up {
-                  from { opacity: 0; transform: translateY(20px); }
-                  to { opacity: 1; transform: translateY(0); }
-                }
-              `}} />
+  const isGlobal = type === 'global';
 
-      <div className="vocal-overlay-enter bg-white/90 dark:bg-[#191919]/90 backdrop-blur-xl border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-2xl p-4 flex flex-col gap-4 overflow-hidden">
+  return (
+    <div
+      className={`vocal-route-overlay ${isGlobal ? 'vocal-overlay-global' : ''}`}
+      style={!isGlobal ? {
+        position: 'fixed',
+        bottom: '1.5rem',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '100%',
+        maxWidth: '36rem',
+        zIndex: 9999,
+        paddingLeft: '1rem',
+        paddingRight: '1rem',
+        display: (isListening || isProcessing) ? 'block' : 'none'
+      } : undefined}
+    >
+
+      <div
+        className="vocal-overlay-enter vocal-route-overlay-container"
+        style={{
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          border: '1px solid #ffffff',
+          borderRadius: '1rem',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          padding: '1rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1rem',
+          overflow: 'hidden'
+        }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative flex h-3 w-3">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${error ? 'bg-red-500' : 'bg-[#1a1a1a] dark:bg-white'}`}></span>
-              <span className={`relative inline-flex rounded-full h-3 w-3 ${error ? 'bg-red-500' : 'bg-[#1a1a1a] dark:bg-white'}`}></span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ position: 'relative', display: 'flex', height: '0.75rem', width: '0.75rem' }}>
+              <span
+                className="vocal-animate-ping"
+                style={{
+                  position: 'absolute',
+                  display: 'inline-flex',
+                  height: '100%',
+                  width: '100%',
+                  borderRadius: '9999px',
+                  opacity: 0.75,
+                  backgroundColor: error ? '#ef4444' : '#ffffff'
+                }}
+              />
+              <span
+                style={{
+                  position: 'relative',
+                  display: 'inline-flex',
+                  borderRadius: '9999px',
+                  height: '0.75rem',
+                  width: '0.75rem',
+                  backgroundColor: error ? '#ef4444' : '#ffffff'
+                }}
+              />
             </div>
-            <p className="text-sm font-bold text-[#1a1a1a] dark:text-white tracking-tight">
+            <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 'bold', color: '#1a1a1a' }} className="vocal-text-dark-white">
               {error ? 'Error' : isProcessing ? 'Processing...' : title || 'Listening...'}
             </p>
           </div>
           <button
             type='button'
             onClick={onClose}
-            className="text-neutral-400 hover:text-[#1a1a1a] dark:hover:text-white transition-colors cursor-pointer"
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              color: '#a3a3a3',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center'
+            }}
             aria-label="Close"
           >
-            <span className="material-symbols-outlined text-xl">close</span>
+            <span className="material-symbols-outlined" style={{ fontSize: '1.25rem' }}>close</span>
           </button>
         </div>
 
         {/* Waveform */}
         {!error && (
-          <div className="flex items-center gap-1.5 h-8 px-2 justify-center">
-            {[...Array(15)].map((_, i) => (
-              <div
-                key={i.toString()}
-                className={`w-1 rounded-full ${isProcessing ? 'animate-pulse bg-cyan-500' : 'vocal-animate-waveform-bar bg-[#1a1a1a] dark:bg-white'}`}
-                style={!isProcessing ? {
-                  height: `${Math.random() * 100}%`,
-                  animationDelay: `${i * 0.1}s`,
-                } : { height: '60%' }}
-              />
-            ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', height: '2.5rem', padding: '0 0.5rem', justifyContent: 'center' }}>
+            {[...Array(15)].map((_, i) => {
+              // Creating a natural looking waveform by combining general volume with per-bar variation
+              // Use a sine mask to make middle bars taller than edges
+              const mask = Math.sin((i / 14) * Math.PI);
+              const individualFactor = 0.5 + (Math.sin(i * 0.8) * 0.2) + (Math.random() * 0.1);
+              const height = isProcessing
+                ? `${30 + Math.sin(Date.now() / 200 + i) * 10}%`
+                : `${Math.max(10, Math.min(100, (volume * mask * individualFactor * 150)))}%`;
+
+              return (
+                <div
+                  key={i.toString()}
+                  className={isProcessing ? 'vocal-animate-pulse' : ''}
+                  style={{
+                    width: '0.25rem',
+                    borderRadius: '9999px',
+                    backgroundColor: isProcessing ? '#06b6d4' : '#ffffff',
+                    height,
+                    transition: isProcessing ? 'none' : 'height 0.05s ease-out',
+                  }}
+                />
+              );
+            })}
           </div>
         )}
 
         {/* Transcript Area */}
-        <div className="bg-neutral-100/50 dark:bg-neutral-800/50 rounded-lg p-3">
+        <div style={{ backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '0.5rem', padding: '0.75rem' }} className="vocal-transcript-bg">
           {error ? (
-            <p className="text-sm font-medium text-red-500">{error}</p>
+            <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500, color: '#ef4444' }}>{error}</p>
           ) : transcript ? (
-            <p className="text-sm font-medium text-[#1a1a1a] dark:text-white">"{transcript}"</p>
+              <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500, color: '#1a1a1a' }} className="vocal-text-dark-white">"{transcript}"</p>
           ) : (
             <>
-              <p className="text-xs text-neutral-500 mb-1 font-medium">Try saying:</p>
-              <div className="flex flex-wrap gap-2">
-                <span className="text-[10px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 px-2 py-1 rounded-full font-semibold cursor-default">"Go to Invoices"</span>
-                <span className="text-[10px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 px-2 py-1 rounded-full font-semibold cursor-default">"Update my profile"</span>
-                <span className="text-[10px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 px-2 py-1 rounded-full font-semibold cursor-default">"Show analytics"</span>
+                  <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', color: '#737373', fontWeight: 500 }}>Try saying:</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <span className="vocal-route-pill">"Go to Invoices"</span>
+                    <span className="vocal-route-pill">"Update my profile"</span>
+                    <span className="vocal-route-pill">"Show analytics"</span>
               </div>
             </>
           )}

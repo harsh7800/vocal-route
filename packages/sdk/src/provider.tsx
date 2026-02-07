@@ -40,6 +40,7 @@ interface ProviderProps {
       overlayConfig?: {
             themeColor?: 'cyan' | 'blue' | 'purple';
             title?: string;
+            type?: 'compact' | 'global';
       };
       /**
        * Whether to show the built-in trigger button.
@@ -220,6 +221,7 @@ export function VocalRouteProvider({
                               onRetry={startListening}
                               themeColor={overlayConfig?.themeColor}
                               title={overlayConfig?.title}
+                              type={overlayConfig?.type}
                         />
                   )}
                   {showButton && (

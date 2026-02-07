@@ -62,19 +62,6 @@ export function VocalRouteButton({
 
   return (
     <div style={defaultStyles} className="vocal-route-button-container">
-      {/* 
-        Injecting a small style tag for hover effects since we are using inline styles 
-        to ensure it works without Tailwind, but we still want it to look premium.
-      */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        .vocal-route-trigger:hover {
-          transform: scale(1.05);
-          box-shadow: 0 0 20px rgba(34, 211, 238, 0.3) !important;
-        }
-        .vocal-route-trigger:active {
-          transform: scale(0.95);
-        }
-      ` }} />
       <button
         type="button"
         onClick={startListening}
