@@ -21,7 +21,7 @@
     ],
     "paths": {
       "@/*": ["./*"],
-      "vocalroute-sdk": ["../../packages/sdk/src/index.ts"]
+      "@vocalroute-ai/sdk": ["../../packages/sdk/src/index.ts"]
     }
   },
   "include": [

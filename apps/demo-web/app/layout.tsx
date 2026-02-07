@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import 'vocalroute-sdk/vocalroute.css';
-import { VocalRouteProvider } from 'vocalroute-sdk';
+import '@vocalroute-ai/sdk/vocalroute.css';
+import { VocalRouteProvider } from '@vocalroute-ai/sdk';
 import { Sidebar } from '../components/layout/Sidebar';
 import { Topbar } from '../components/layout/Topbar';
 const geistSans = Geist({

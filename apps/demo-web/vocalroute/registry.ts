@@ -1,0 +1,77 @@
+export const staticRegistry = [
+  {
+    "path": "/clients",
+    "routerType": "app",
+    "params": [],
+    "title": "Clients",
+    "confidence": 0.6,
+    "intents": [
+      "open clients",
+      "go to clients",
+      "show clients",
+      "view clients",
+      "navigate to clients"
+    ],
+    "hash": "ba3a934ce3351f18eb4d6ac280543676"
+  },
+  {
+    "path": "/invoices",
+    "routerType": "app",
+    "params": [],
+    "title": "Invoices",
+    "confidence": 0.6,
+    "intents": [
+      "open invoices",
+      "go to invoices",
+      "show invoices",
+      "view invoices",
+      "navigate to invoices"
+    ],
+    "hash": "4730ba3567d2706c882c44778ed4ffaf"
+  },
+  {
+    "path": "/",
+    "routerType": "app",
+    "params": [],
+    "title": "Home",
+    "confidence": 0.6,
+    "intents": [
+      "open home",
+      "go to home",
+      "show home",
+      "view home",
+      "navigate to home"
+    ],
+    "hash": "48dcdf6a79cc3f2bc901c323ff3ec503"
+  },
+  {
+    "path": "/reports",
+    "routerType": "app",
+    "params": [],
+    "title": "Reports",
+    "confidence": 0.6,
+    "intents": [
+      "open reports",
+      "go to reports",
+      "show reports",
+      "view reports",
+      "navigate to reports"
+    ],
+    "hash": "3b3c1e78310275b99faea8fcba3a55ee"
+  },
+  {
+    "path": "/settings",
+    "routerType": "app",
+    "params": [],
+    "title": "Email Notifications",
+    "confidence": 0.6,
+    "intents": [
+      "open email notifications",
+      "go to email notifications",
+      "show email notifications",
+      "view email notifications",
+      "navigate to email notifications"
+    ],
+    "hash": "82b5b68b54f7f6cb37549b740efc3181"
+  }
+];

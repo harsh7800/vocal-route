@@ -1,4 +1,4 @@
-import { useVocalRoute as useVocalRouteSDK } from "vocalroute-sdk";
+import { useVocalRoute as useVocalRouteSDK } from "@vocalroute-ai/sdk";
 
 export function useVocalRoute() {
   const sdk = useVocalRouteSDK();

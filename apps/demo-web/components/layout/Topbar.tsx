@@ -1,6 +1,6 @@
 'use client';
 
-import { useVocalRoute } from 'vocalroute-sdk';
+import { useVocalRoute } from '@vocalroute-ai/sdk';
 
 export function Topbar() {
   const { startListening } = useVocalRoute();
