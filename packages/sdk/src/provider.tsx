@@ -8,7 +8,9 @@ import { VolumeVisualizer } from './audio/visualizer';
 import { staticRegistry } from './generated/registry';
 import { VoiceOverlay } from './components/VoiceOverlay';
 import { VocalRouteButton } from './components/VocalRouteButton';
+import { resolveLocalIntent } from './ai/resolver';
 import type { VocalIntent, RouteRegistry } from './types';
+
 
 export type ContextType = {
       isListening: boolean;
@@ -44,21 +46,12 @@ interface ProviderProps {
        * @default false
        */
       showButton?: boolean;
-      /**
-       * Customization for the built-in button.
-       */
       buttonConfig?: {
             position?: { top?: string; bottom?: string; left?: string; right?: string };
             className?: string;
             children?: React.ReactNode;
       };
-      /**
-       * API URL for intent resolution.
-       * @default "/api/vocal-route"
-       */
-      apiUrl?: string;
 }
-
 export function VocalRouteProvider({ 
       children,
       routes = staticRegistry as unknown as RouteRegistry,
@@ -66,7 +59,6 @@ export function VocalRouteProvider({
       overlayConfig,
       showButton = false,
       buttonConfig,
-      apiUrl = "/api/vocal-route"
 }: ProviderProps) {
       const [isListening, setIsListening] = useState(false);
       const [isProcessing, setIsProcessing] = useState(false);
@@ -118,29 +110,15 @@ export function VocalRouteProvider({
       const processIntent = useCallback(async (text: string) => {
             setIsProcessing(true);
             try {
-                  const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                              text,
-                              routes: registry.map(r => ({
-                                    path: r.path,
-                                    intents: r.intents,
-                                    title: r.title,
-                                    params: r.params
-                              }))
-                        })
-                  });
+                  // Use the local resolver for backend-free operation
+                  const intent = resolveLocalIntent(text, registry);
 
-                  if (!response.ok) throw new Error("Failed to process intent");
-
-                  const intent: VocalIntent = await response.json();
-                  console.log('🧠 Intent result:', intent);
+                  console.log('🧠 Intent result (local):', intent);
 
                   setTranscript(intent.transcript);
                   setConfidence(intent.confidence);
 
-                  if (intent.intent === 'navigate' && intent.target && intent.confidence >= 0.75) {
+                  if (intent.intent === 'navigate' && intent.target && intent.confidence >= 0.7) {
                         const targetRoute = registry.find(r => r.path === intent.target);
 
                         if (targetRoute) {
@@ -162,7 +140,7 @@ export function VocalRouteProvider({
                         }
                   }
 
-                  if (intent.confidence < 0.75) {
+                  if (intent.confidence < 0.7) {
                         setError("I'm not exactly sure what you mean. Could you rephrase that?");
                   } else {
                         setError("Sorry, I couldn't find a matching page for that command.");
@@ -173,7 +151,8 @@ export function VocalRouteProvider({
                   setError("Something went wrong. Please try again.");
                   setIsProcessing(false);
             }
-      }, [registry, router, apiUrl]);
+      }, [registry, router]);
+
 
       const startListening = async () => {
             if (!registry || registry.length === 0) {

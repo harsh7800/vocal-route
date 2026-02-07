@@ -119,3 +119,68 @@ Respond in this exact JSON format:
     return { transcript, intent: "unknown", target: null, confidence: 0 };
   }
 }
+
+/**
+ * A purely local intent resolver that uses keyword matching and basic heuristics.
+ * This is "backend-free" and runs entirely in the browser.
+ */
+export function resolveLocalIntent(
+  transcript: string,
+  registry: RouteRegistry,
+): VocalIntent {
+  const normalizedTranscript = transcript.toLowerCase().trim();
+
+  let bestMatch: { route: any; confidence: number } | null = null;
+
+  for (const route of registry) {
+    let maxRouteConfidence = 0;
+
+    // 1. Check direct intent matches
+    if (route.intents) {
+      for (const intent of route.intents) {
+        const normalizedIntent = intent.toLowerCase();
+        if (normalizedTranscript === normalizedIntent) {
+          maxRouteConfidence = Math.max(maxRouteConfidence, 0.95);
+        } else if (normalizedTranscript.includes(normalizedIntent)) {
+          maxRouteConfidence = Math.max(maxRouteConfidence, 0.85);
+        }
+      }
+    }
+
+    // 2. Check title matches
+    if (route.title) {
+      const normalizedTitle = route.title.toLowerCase();
+      if (normalizedTranscript.includes(normalizedTitle)) {
+        maxRouteConfidence = Math.max(maxRouteConfidence, 0.75);
+      }
+    }
+
+    // 3. Check path matches (semantic-ish)
+    const pathSlug = route.path.split("/").pop()?.toLowerCase();
+    if (pathSlug && pathSlug.length > 2 && normalizedTranscript.includes(pathSlug)) {
+      maxRouteConfidence = Math.max(maxRouteConfidence, 0.7);
+    }
+
+    if (maxRouteConfidence > (bestMatch?.confidence || 0)) {
+      bestMatch = { route, confidence: maxRouteConfidence };
+    }
+  }
+
+  if (bestMatch && bestMatch.confidence >= 0.7) {
+    // Basic param extraction if needed (placeholder for now)
+    // In a local resolver, we might just look for numbers or specific keywords
+    return {
+      intent: "navigate",
+      target: bestMatch.route.path,
+      confidence: bestMatch.confidence,
+      transcript,
+    };
+  }
+
+  return {
+    intent: "unknown",
+    target: null,
+    confidence: 0,
+    transcript,
+  };
+}
