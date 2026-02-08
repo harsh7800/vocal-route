@@ -2,6 +2,12 @@
 
 All notable changes to the VocalRoute SDK will be documented in this file.
 
+## [0.2.11] - 2026-02-08
+
+### Added
+- **Changelog**: Introduced `CHANGELOG.md` to the package.
+- **Feedback Loop**: Finalized community contact links in the README.
+
 ## [0.2.10] - 2026-02-08
 
 ### Added
@@ -9,7 +15,6 @@ All notable changes to the VocalRoute SDK will be documented in this file.
 - **Custom Base URL**: Added `baseURL` support to `aiConfig` for using OpenAI-compatible providers (Groq, Local LLMs, etc.).
 - **Strict Mode**: New `strictMode` flag in `aiConfig` to disable internal fallbacks.
 - **Improved Error Handling**: Technical AI errors are now captured and displayed in the Voice Overlay for easier debugging.
-- **Feedback Loop**: Added community contact links to the README.
 
 ### Changed
 - **Type Flexibility**: Refactored `RouteEntry` to support flexible path parameters and custom properties like `hash`.
