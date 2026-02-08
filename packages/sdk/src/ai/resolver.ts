@@ -3,8 +3,10 @@ import type { RouteRegistry, VocalIntent } from "../types";
 
 export interface ResolveIntentOptions {
   openaiApiKey?: string;
+  baseURL?: string;
   transcriptModel?: string;
   intentSummaryModel?: string;
+  strictMode?: boolean;
 }
 
 const FALLBACK_MODELS = ["gpt-4o-mini", "gpt-3.5-turbo"];
@@ -18,11 +20,14 @@ export async function resolveIntent(
 
   if (!apiKey) {
     throw new Error(
-      "OPENAI_API_KEY is not set. Please provide it in options or set it in .env.local",
+      "VocalRoute: OpenAI API Key is missing. Please provide it in VocalRouteProvider or set OPENAI_API_KEY environment variable.",
     );
   }
 
-  const openai = new OpenAI({ apiKey });
+  const openai = new OpenAI({
+    apiKey,
+    baseURL: options.baseURL,
+  });
 
   const systemPrompt = `
 You are a high-precision voice-controlled navigation engine.
@@ -44,7 +49,9 @@ Rules:
         `Path: ${r.path}`,
         `Title: ${r.title || "Untitled"}`,
         r.intents?.length ? `Keywords: ${r.intents.join(", ")}` : null,
-        r.params ? `Dynamic Params: ${Object.keys(r.params).join(", ")}` : null,
+        r.params
+          ? `Dynamic Params: ${Array.isArray(r.params) ? r.params.join(", ") : Object.keys(r.params).join(", ")}`
+          : null,
       ]
         .filter(Boolean)
         .join(" | ");
@@ -68,11 +75,16 @@ Respond in this exact JSON format:
 }
 `;
 
-  // 1. Optional Transcript Correction with Fallback
+  // 1. Optional Transcript Correction
   if (options.transcriptModel) {
-    let currentModel = options.transcriptModel;
-    let success = false;
-    const triedModels = [currentModel, ...FALLBACK_MODELS];
+    const triedModels = options.strictMode
+      ? [options.transcriptModel]
+      : [
+          options.transcriptModel,
+          ...FALLBACK_MODELS.filter((m) => m !== options.transcriptModel),
+        ];
+
+    let lastError: any = null;
 
     for (const model of triedModels) {
       try {
@@ -90,29 +102,36 @@ Respond in this exact JSON format:
         const correctedText = correction.choices[0].message.content;
         if (correctedText) {
           transcript = correctedText.trim();
-          success = true;
+          lastError = null;
           break;
         }
       } catch (e: any) {
-        if (e.status === 404 || e.status === 403) {
-          console.warn(`⚠️ Model ${model} unavailable, trying fallback...`);
+        lastError = e;
+        if (!options.strictMode && (e.status === 404 || e.status === 403)) {
+          console.warn(
+            `⚠️ Transcription model ${model} unavailable, trying fallback...`,
+          );
           continue;
         }
-        console.warn(
-          `⚠️ Transcript correction failed for ${model}:`,
-          e.message,
-        );
         break;
       }
     }
+
+    if (lastError) {
+      throw new Error(
+        `VocalRoute Transcription Error (${lastError.status}): ${lastError.message}`,
+      );
+    }
   }
 
-  // 2. Intent Resolution with Fallback
-  let targetModel = options.intentSummaryModel || "gpt-4o-mini";
-  const modelQueue = [
-    targetModel,
-    ...FALLBACK_MODELS.filter((m) => m !== targetModel),
-  ];
+  // 2. Intent Resolution
+  const targetModel = options.intentSummaryModel || "gpt-4o-mini";
+  const modelQueue =
+    options.strictMode && options.intentSummaryModel
+      ? [options.intentSummaryModel]
+      : [targetModel, ...FALLBACK_MODELS.filter((m) => m !== targetModel)];
+
+  let resolutionError: any = null;
 
   for (const model of modelQueue) {
     try {
@@ -138,15 +157,24 @@ Respond in this exact JSON format:
         transcript,
       } as VocalIntent;
     } catch (error: any) {
-      if (error.status === 404 || error.status === 403) {
+      resolutionError = error;
+      if (
+        !options.strictMode &&
+        (error.status === 404 || error.status === 403)
+      ) {
         console.warn(
           `⚠️ Intent model ${model} unavailable, trying fallback...`,
         );
         continue;
       }
-      console.error(`❌ VocalRoute AI Error (${model}):`, error.message);
       break;
     }
+  }
+
+  if (resolutionError) {
+    throw new Error(
+      `VocalRoute Intent Resolution Error (${resolutionError.status}): ${resolutionError.message}`,
+    );
   }
 
   return { transcript, intent: "unknown", target: null, confidence: 0 };

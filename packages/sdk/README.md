@@ -89,6 +89,21 @@ export default function RootLayout({ children }) {
 | `showOverlay`   | `boolean`       | `true`  | Whether to show the built-in voice overlay  |
 | `buttonConfig`  | `Object`        | -       | Customization for the trigger button        |
 | `overlayConfig` | `Object`        | -       | Customization for the voice overlay         |
+| `aiConfig`      | `Object`        | -       | Configuration for AI model and fallbacks    |
+
+### AI Configuration (`aiConfig`)
+
+Customize the AI engine to use specific models or providers.
+
+| Property             | Type      | Default        | Description                                                                 |
+| :------------------- | :-------- | :------------- | :-------------------------------------------------------------------------- |
+| `enabled`            | `boolean` | `false`        | Enable cloud-based AI intent resolution (requires OpenAI Key)               |
+| `openaiApiKey`       | `string`  | -              | Your OpenAI API Key (can also be set via `OPENAI_API_KEY` env)              |
+| `baseURL`            | `string`  | -              | Custom API base URL (e.g. for Groq, Local LLMs, or Proxy)                   |
+| `intentModel`        | `string`  | `gpt-4o-mini`  | The model used for mapping speech to route intents                          |
+| `transcriptModel`    | `string`  | -              | Optional model for phonetic transcript correction before intent resolution  |
+| `strictMode`         | `boolean` | `false`        | If true, disables internal fallbacks if your custom models fail             |
+| `fallbackToLocal`    | `boolean` | `true`         | If true, falls back to browser-only matching if AI resolution fails         |
 
 ### Using the Hook
 

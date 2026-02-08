@@ -20,14 +20,18 @@ export type VocalIntent = {
   reply?: string;
 };
 
+export type VocalAIConfig = {
+  enabled?: boolean;
+  openaiApiKey?: string;
+  baseURL?: string;
+  intentModel?: string;
+  transcriptModel?: string;
+  fallbackToLocal?: boolean;
+  strictMode?: boolean;
+};
+
 export type VocalRouteConfig = {
   apiUrl?: string;
   routes?: RouteRegistry;
-  ai?: {
-    enabled?: boolean;
-    openaiApiKey?: string;
-    intentModel?: string;
-    transcriptModel?: string;
-    fallbackToLocal?: boolean;
-  };
+  ai?: VocalAIConfig;
 };

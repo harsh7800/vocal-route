@@ -10,7 +10,7 @@ import { staticRegistry } from './generated/registry';
 import { VoiceOverlay } from './components/VoiceOverlay';
 import { VocalRouteButton } from './components/VocalRouteButton';
 import { resolveLocalIntent, resolveIntent } from './ai/resolver';
-import type { VocalIntent, RouteRegistry } from './types';
+import type { VocalIntent, RouteRegistry, VocalAIConfig } from './types';
 
 
 export type ContextType = {
@@ -59,13 +59,7 @@ interface ProviderProps {
       /**
        * AI Configuration for model selection and fallbacks.
        */
-      aiConfig?: {
-            enabled?: boolean;
-            openaiApiKey?: string;
-            intentModel?: string;
-            transcriptModel?: string;
-            fallbackToLocal?: boolean;
-      };
+      aiConfig?: VocalAIConfig;
 }
 export function VocalRouteProvider({ 
       children,
@@ -139,8 +133,10 @@ export function VocalRouteProvider({
                         try {
                               intent = await resolveIntent(text, registry, {
                                     openaiApiKey: aiConfig.openaiApiKey,
+                                    baseURL: aiConfig.baseURL,
                                     intentSummaryModel: aiConfig.intentModel,
                                     transcriptModel: aiConfig.transcriptModel,
+                                    strictMode: aiConfig.strictMode,
                               });
 
                               // If AI confidence is low, we might still want to try local as a safety net
@@ -150,9 +146,16 @@ export function VocalRouteProvider({
                                           intent = localIntent;
                                     }
                               }
-                        } catch (e) {
-                              console.warn("⚠️ AI Intent resolution failed, falling back to local:", e);
-                              intent = resolveLocalIntent(text, registry);
+                        } catch (e: any) {
+                              if (aiConfig.fallbackToLocal) {
+                                    console.warn("⚠️ AI Intent resolution failed, falling back to local:", e.message);
+                                    intent = resolveLocalIntent(text, registry);
+                              } else {
+                                    console.error("❌ VocalRoute AI Error:", e.message);
+                                    setError(e.message);
+                                    setIsProcessing(false);
+                                    return;
+                              }
                         }
                   } else {
                         // 2. Default to Local Resolution (Backend-free)
