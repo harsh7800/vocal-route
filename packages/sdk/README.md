@@ -130,6 +130,12 @@ const CustomTrigger = () => {
 - **Automatic Route Discovery**: Scans your Next.js project to generate navigation intents.
 - **TTS (Text-to-Speech)**: Conversational replies for navigation and status.
 
+## Feedback
+
+We are actively shaping VocalRoute — reach out! Your feedback helps us determine what to build next.
+
+-   **GitHub Discussions:** [Join our community](https://github.com/harsh7800/vocal-route/discussions) to share ideas, ask questions, or report issues.
+
 ## License
 
 MIT
