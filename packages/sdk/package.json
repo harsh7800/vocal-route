@@ -33,7 +33,8 @@
   "files": [
     "dist",
     "vocalroute.css",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc",
