@@ -5,6 +5,7 @@ import '@vocalroute-ai/sdk/vocalroute.css';
 import { VocalRouteProvider } from '@vocalroute-ai/sdk';
 import { Sidebar } from '../components/layout/Sidebar';
 import { Topbar } from '../components/layout/Topbar';
+import { staticRegistry } from '../vocalroute/registry';
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -39,6 +40,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#f7f7f7] dark:bg-[#191919] text-[#1a1a1a] dark:text-white transition-colors duration-200`}
       >
         <VocalRouteProvider
+          routes={staticRegistry}
           overlayConfig={{ themeColor: 'cyan', title: 'How can I help?' , type: 'global' }}
           showButton={true}
         >
