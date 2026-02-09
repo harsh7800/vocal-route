@@ -1,6 +1,8 @@
 'use client';
 
-import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { VoiceOrb } from './VoiceOrb';
+import { X as CloseIcon, RefreshCcw as RetryIcon } from 'lucide-react';
 
 export interface VoiceOverlayProps {
   isListening: boolean;
@@ -10,11 +12,14 @@ export interface VoiceOverlayProps {
   error?: string | null;
   confidence?: number;
   volume?: number;
+  frequencies?: number[];
+  agentReply?: string | null;
   onClose?: () => void;
   onRetry?: () => void;
   // Customization options
   themeColor?: 'cyan' | 'blue' | 'purple';
   title?: string;
+  type?: 'compact' | 'global';
 }
 
 export function VoiceOverlay({
@@ -23,87 +28,349 @@ export function VoiceOverlay({
   transcript,
   error,
   onClose,
-  title
+  onRetry,
+  title,
+  volume = 0,
+  frequencies = [],
+  agentReply,
+  isSpeaking = false,
+  type = 'compact',
+  themeColor = 'cyan'
 }: VoiceOverlayProps) {
-  if (!isListening && !isProcessing) return null;
+  const isGlobal = type === 'global';
+  const show = isListening || isProcessing || !!error;
 
+  // Use AnimatePresence for mount/unmount animations.
+  // We wrap the whole component in AnimatePresence at the usage site or handle "show" internally.
+  // Since the parent conditionally renders this component based on isListening/isProcessing, 
+  // we might miss exit animations unless the parent keeps it mounted. 
+  // Ideally, the parent should keep it mounted and pass `open` state.
+  // However, given the current structure:
+  if (!show) return null;
+
+  if (isGlobal) {
+    return (
+      <AnimatePresence>
+        {show && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.35 }}
+            className="vocal-overlay-global fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/95 backdrop-blur-xl"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(0, 0, 0, 0.65)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)'
+            }}
+          >
+            {/* Close button */}
+            <motion.button
+              onClick={onClose}
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              style={{
+                position: 'absolute',
+                top: '1.5rem',
+                right: '1.5rem',
+                display: 'flex',
+                height: '2.5rem',
+                width: '2.5rem',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '9999px',
+                color: 'rgba(255,255,255,0.7)',
+                background: 'rgba(255,255,255,0.1)',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+              whileHover={{ scale: 1.1, backgroundColor: 'rgba(255,255,255,0.2)', color: '#fff' }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <CloseIcon size={20} />
+            </motion.button>
+
+            {/* Status text */}
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              style={{
+                marginBottom: '3rem',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: isSpeaking ? '#22d3ee' : 'rgba(255,255,255,0.6)'
+              }}
+            >
+              {error ? "Error" : isSpeaking ? "Speaking..." : isProcessing ? "Processing..." : title || "Listening..."}
+            </motion.p>
+
+            {/* Orb */}
+            <motion.div
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 150, damping: 18 }}
+            >
+              <VoiceOrb
+                volume={volume}
+                frequencies={frequencies}
+                isListening={!isProcessing && !error}
+                themeColor={themeColor as any}
+              />
+            </motion.div>
+
+            {/* Transcript / Error Display */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              style={{
+                marginTop: '3rem',
+                padding: '0 2rem',
+                maxWidth: '40rem',
+                width: '100%',
+                textAlign: 'center'
+              }}
+            >
+              {error ? (
+                <p style={{ fontSize: '1.125rem', color: '#f87171' }}>{error}</p>
+              ) : agentReply ? (
+                <p style={{ fontSize: '1.5rem', fontWeight: 500, color: '#22d3ee' }}>"{agentReply}"</p>
+              ) : transcript ? (
+                    <p style={{ fontSize: '1.5rem', fontWeight: 500, color: '#ffffff' }}>"{transcript}"</p>
+              ) : (
+                <p style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.4)' }}>
+                  Say "Go to settings" or "Create a new post"
+                </p>
+              )}
+            </motion.div>
+
+            {/* Volume indicator */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="mt-10 flex items-center gap-1"
+            >
+              {Array.from({ length: 20 }).map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="rounded-full"
+                  animate={{
+                    height: 4 + (frequencies[i] || 0) * 28,
+                    backgroundColor:
+                      (frequencies[i] || 0) > 0.5
+                        ? (themeColor === 'purple' ? '#a855f7' : themeColor === 'blue' ? '#3b82f6' : '#06b6d4')
+                        : "rgba(163, 163, 163, 0.3)",
+                  }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                  style={{ width: 3, borderRadius: 2 }}
+                />
+              ))}
+            </motion.div>
+
+
+
+            {/* Global Retry Button */}
+            {error && onRetry && (
+              <motion.button
+                onClick={onRetry}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                style={{
+                  marginTop: '2rem',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '9999px',
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: 500
+                }}
+                whileHover={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <RetryIcon size={16} />
+                Try Again
+              </motion.button>
+            )}
+
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  }
+
+  // Compact Version (Existing)
   return (
-    <div className="vocal-route-overlay fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-xl z-[9999] px-4">
-      {/* Inject styles */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
-                @keyframes vocal-waveform {
-                  0%, 100% { height: 20%; }
-                  50% { height: 80%; }
-                }
-                .vocal-animate-waveform-bar {
-                  animation: vocal-waveform 0.8s ease-in-out infinite;
-                }
-                .vocal-overlay-enter {
-                  animation: vocal-slide-up 0.3s ease-out forwards;
-                }
-                @keyframes vocal-slide-up {
-                  from { opacity: 0; transform: translateY(20px); }
-                  to { opacity: 1; transform: translateY(0); }
-                }
-              `}} />
-
-      <div className="vocal-overlay-enter bg-white/90 dark:bg-[#191919]/90 backdrop-blur-xl border border-neutral-200 dark:border-neutral-800 rounded-2xl shadow-2xl p-4 flex flex-col gap-4 overflow-hidden">
+    <div
+      className="vocal-route-overlay"
+      style={{
+        position: 'fixed',
+        bottom: '1.5rem',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: '100%',
+        maxWidth: '36rem',
+        zIndex: 9999,
+        paddingLeft: '1rem',
+        paddingRight: '1rem',
+        display: show ? 'block' : 'none'
+      }}
+    >
+      <div
+        className="vocal-overlay-enter vocal-route-overlay-container"
+        style={{
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          border: '1px solid #ffffff',
+          borderRadius: '1rem',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          padding: '1rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1rem',
+          overflow: 'hidden'
+        }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative flex h-3 w-3">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${error ? 'bg-red-500' : 'bg-[#1a1a1a] dark:bg-white'}`}></span>
-              <span className={`relative inline-flex rounded-full h-3 w-3 ${error ? 'bg-red-500' : 'bg-[#1a1a1a] dark:bg-white'}`}></span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ position: 'relative', display: 'flex', height: '0.75rem', width: '0.75rem' }}>
+              <span
+                className="vocal-animate-ping"
+                style={{
+                  position: 'absolute',
+                  display: 'inline-flex',
+                  height: '100%',
+                  width: '100%',
+                  borderRadius: '9999px',
+                  opacity: 0.75,
+                  backgroundColor: error ? '#ef4444' : '#ffffff'
+                }}
+              />
+              <span
+                style={{
+                  position: 'relative',
+                  display: 'inline-flex',
+                  borderRadius: '9999px',
+                  height: '0.75rem',
+                  width: '0.75rem',
+                  backgroundColor: error ? '#ef4444' : '#ffffff'
+                }}
+              />
             </div>
-            <p className="text-sm font-bold text-[#1a1a1a] dark:text-white tracking-tight">
-              {error ? 'Error' : isProcessing ? 'Processing...' : title || 'Listening...'}
+            <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 'bold', color: '#1a1a1a' }} className="vocal-text-dark-white">
+              {error ? 'Error' : isSpeaking ? 'Speaking...' : isProcessing ? 'Processing...' : title || 'Listening...'}
             </p>
           </div>
           <button
             type='button'
             onClick={onClose}
-            className="text-neutral-400 hover:text-[#1a1a1a] dark:hover:text-white transition-colors cursor-pointer"
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              color: '#a3a3a3',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center'
+            }}
             aria-label="Close"
           >
-            <span className="material-symbols-outlined text-xl">close</span>
+            <CloseIcon size={20} />
           </button>
         </div>
 
         {/* Waveform */}
         {!error && (
-          <div className="flex items-center gap-1.5 h-8 px-2 justify-center">
-            {[...Array(15)].map((_, i) => (
-              <div
-                key={i.toString()}
-                className={`w-1 rounded-full ${isProcessing ? 'animate-pulse bg-cyan-500' : 'vocal-animate-waveform-bar bg-[#1a1a1a] dark:bg-white'}`}
-                style={!isProcessing ? {
-                  height: `${Math.random() * 100}%`,
-                  animationDelay: `${i * 0.1}s`,
-                } : { height: '60%' }}
-              />
-            ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', height: '2.5rem', padding: '0 0.5rem', justifyContent: 'center' }}>
+            {[...Array(15)].map((_, i) => {
+              // Creating a natural looking waveform by combining general volume with per-bar variation
+              // Use a sine mask to make middle bars taller than edges
+              const mask = Math.sin((i / 14) * Math.PI);
+              const individualFactor = 0.5 + (Math.sin(i * 0.8) * 0.2) + (Math.random() * 0.1);
+              const height = isProcessing
+                ? `${30 + Math.sin(Date.now() / 200 + i) * 10}%`
+                : `${Math.max(10, Math.min(100, (volume * mask * individualFactor * 150)))}%`;
+
+              return (
+                <div
+                  key={i.toString()}
+                  className={isProcessing ? 'vocal-animate-pulse' : ''}
+                  style={{
+                    width: '0.25rem',
+                    borderRadius: '9999px',
+                    backgroundColor: isProcessing ? '#06b6d4' : '#ffffff',
+                    height,
+                    transition: isProcessing ? 'none' : 'height 0.05s ease-out',
+                  }}
+                />
+              );
+            })}
           </div>
         )}
 
         {/* Transcript Area */}
-        <div className="bg-neutral-100/50 dark:bg-neutral-800/50 rounded-lg p-3">
+        <div style={{ backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '0.5rem', padding: '0.75rem' }} className="vocal-transcript-bg">
           {error ? (
-            <p className="text-sm font-medium text-red-500">{error}</p>
+            <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500, color: '#ef4444' }}>{error}</p>
+          ) : agentReply ? (
+            <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500, color: '#06b6d4' }}>{agentReply}</p>
           ) : transcript ? (
-            <p className="text-sm font-medium text-[#1a1a1a] dark:text-white">"{transcript}"</p>
+              <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500, color: '#1a1a1a' }} className="vocal-text-dark-white">"{transcript}"</p>
           ) : (
             <>
-              <p className="text-xs text-neutral-500 mb-1 font-medium">Try saying:</p>
-              <div className="flex flex-wrap gap-2">
-                <span className="text-[10px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 px-2 py-1 rounded-full font-semibold cursor-default">"Go to Invoices"</span>
-                <span className="text-[10px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 px-2 py-1 rounded-full font-semibold cursor-default">"Update my profile"</span>
-                <span className="text-[10px] bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 px-2 py-1 rounded-full font-semibold cursor-default">"Show analytics"</span>
+                  <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', color: '#737373', fontWeight: 500 }}>Try saying:</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <span className="vocal-route-pill">"Go to Invoices"</span>
+                    <span className="vocal-route-pill">"Update my profile"</span>
+                    <span className="vocal-route-pill">"Show analytics"</span>
               </div>
             </>
           )}
         </div>
       </div>
+
+      {/* Compact Retry Button */}
+      {error && onRetry && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '0.5rem' }}>
+          <button
+            onClick={onRetry}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#64748b',
+              fontSize: '0.875rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              cursor: 'pointer',
+              padding: '0.25rem 0.5rem',
+              borderRadius: '0.25rem'
+            }}
+          >
+            <RetryIcon size={14} />
+            Try again
+          </button>
+        </div>
+      )}
     </div>
   );
 }

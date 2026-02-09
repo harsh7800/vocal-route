@@ -1,0 +1,19 @@
+{
+  "files": {
+    "ignore": [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/.git/**",
+      "**/.next/**",
+      "**/.turbo/**",
+      "**/coverage/**"
+    ]
+  },
+  "linter": {
+    "enabled": false
+  },
+  "formatter": {
+    "enabled": true
+  }
+}
