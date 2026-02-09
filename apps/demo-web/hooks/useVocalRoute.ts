@@ -1,9 +1,0 @@
-import { useVocalRoute as useVocalRouteSDK } from "@vocalroute-ai/sdk";
-
-export function useVocalRoute() {
-  const sdk = useVocalRouteSDK();
-
-  // Custom frontend logic can be added here
-
-  return sdk;
-}

@@ -4,11 +4,10 @@ Powerful voice navigation and AI assistance for modern web applications.
 
 VocalRoute allows users to navigate your Next.js application using voice commands. It handles transcription, intent resolution, and navigation entirely in the browser, providing a fast and private user experience.
 
-## Monorepo Structure
+## Repository Structure
 
 -   `packages/sdk`: The core SDK (`@vocalroute-ai/sdk`) for React/Next.js applications.
--   `apps/demo-web`: A reference implementation using the SDK.
--   `packages/backend`: (Optional) Backend for more complex intent resolution.
+-   `docs`: Documentation and integration guides.
 
 ## Getting Started
 
@@ -59,10 +58,6 @@ If you are contributing to VocalRoute:
 2.  **Build packages:**
     ```bash
     yarn build
-    ```
-3.  **Run demo:**
-    ```bash
-    yarn demo:dev
     ```
 
 ## License
