@@ -2,10 +2,16 @@
   "name": "vocal-route-monorepo",
   "private": true,
   "workspaces": [
-    "packages/sdk"
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
+    "dev": "yarn workspace vocal-route-demo dev",
+    "demo:dev": "yarn workspace vocal-route-demo dev",
+    "demo:build": "yarn workspace vocal-route-demo build",
+    "demo:start": "yarn workspace vocal-route-demo start",
     "sdk:build": "yarn workspace @vocalroute-ai/sdk build",
+    "sdk:dev": "yarn workspace @vocalroute-ai/sdk dev",
     "lint": "yarn workspaces run lint",
     "format": "yarn workspaces run format"
   },
