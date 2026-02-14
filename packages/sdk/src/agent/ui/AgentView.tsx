@@ -365,7 +365,7 @@ export const AgentView: React.FC<AgentViewProps> = ({
                         <div className="mt-3 flex items-center justify-between text-[9px] text-slate-400 font-bold px-1 uppercase tracking-tighter">
                               <span className="flex items-center gap-1">
                                     <span className="material-symbols-outlined text-[12px] opacity-70">terminal</span>
-                                    v2.5.0-A1
+                                    v2.5.0
                               </span>
                               <span className="flex items-center gap-1">
                                     <span className="material-symbols-outlined text-[12px] opacity-70">verified</span>
