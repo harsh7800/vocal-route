@@ -12,7 +12,7 @@ export type RouteEntry = {
 export type RouteRegistry = RouteEntry[];
 
 export type VocalIntent = {
-  intent: "navigate" | "unknown";
+  intent: "navigate" | "action" | "chat" | "unknown";
   target: string | null;
   confidence: number;
   transcript: string;

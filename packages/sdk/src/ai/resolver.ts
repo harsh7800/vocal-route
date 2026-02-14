@@ -35,12 +35,13 @@ Your goal is to map a user's spoken transcript to the correct route from the pro
 
 Rules:
 1. Respond with ONLY valid JSON.
-2. intent must be "navigate" if a strong match is found, otherwise "unknown".
-3. confidence must be between 0 and 1.
-4. target must be the EXACT "path" of the matched route from the registry.
-5. If the route matched is dynamic (contains [param]), extract the relevant value from the transcript and return it in the "params" object.
-6. Semantic matching is encouraged (e.g., "show me customers" matches ID: "/clients").
-7. Minimum confidence for navigation is 0.75. If you are unsure, return "unknown".
+7. Minimum confidence for navigation is 0.75. If you are unsure about navigation, check if it's a general question or conversation.
+8. If the input is conversational (e.g., "hello", "how are you", "what can you do?"), respond with:
+   - "intent": "chat"
+   - "reply": A concise, friendly, and helpful AI response.
+   - "target": null
+   - "confidence": 0.9
+9. If the input is completely unintelligible or unrelated, return "unknown".
 `;
 
   const routeContext = registry
@@ -198,11 +199,20 @@ export function resolveLocalIntent(
 
   // Helper for word boundary matching
   const matchesWord = (text: string, phrase: string) => {
-    // Escape special regex characters in the phrase
-    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`\\b${escaped}\\b`, "i");
-    return regex.test(text);
-  };;
+    const transcriptWords = text
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 0);
+    const phraseWords = phrase
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 0);
+
+    // Check if ALL words in the phrase exist in the transcript
+    return phraseWords.every((pw) =>
+      transcriptWords.some((tw) => tw.includes(pw) || pw.includes(tw)),
+    );
+  };
 
   for (const route of registry) {
     let score = 0;
@@ -293,7 +303,7 @@ export function resolveLocalIntent(
     }
   }
 
-  if (bestMatch && bestMatch.confidence >= 0.7) {
+  if (bestMatch && bestMatch.confidence >= 0.6) {
     return {
       intent: "navigate",
       target: bestMatch.route.path,
@@ -308,6 +318,6 @@ export function resolveLocalIntent(
     intent: "unknown",
     target: null,
     confidence: 0,
-    reply: "I'm not exactly sure what you mean. Could you rephrase that?",
+    reply: "I didn't hear a valid command. I can execute tasks or navigate.",
   };
 }
