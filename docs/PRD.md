@@ -1,115 +1,210 @@
-📄 Product Requirements Document (PRD)
-Product Name
 
-VocalRoute
+---
 
-Problem Statement
+# 📄 2️⃣ `VocalRoute_Coding_Agent_Prompt.md`
 
-Modern applications lack a reliable, safe, and developer-friendly way to support voice-based navigation. Existing voice systems often:
+```markdown
+# SYSTEM PROMPT — Build VocalRoute Runtime (New Architecture)
 
-hallucinate routes
+You are implementing the core runtime for VocalRoute.
 
-guess project structure
+Follow the steps below strictly and sequentially.
+Do not skip architectural layers.
+Maintain determinism at all times.
 
-tightly couple to frameworks
+---
 
-behave unpredictably
+# STEP 1 — Global Provider
 
-VocalRoute solves this by making voice navigation project-aware, explicit, and constrained.
+Implement:
 
-Target Users
+- VocalRouteProvider
+- AgentOverlay (persistent)
+- Global state store
+- AgentMode state machine
 
-Frontend developers (React / Next.js / SPA apps)
+Mount provider at root layout level.
 
-SaaS product teams
+The agent must persist across route changes.
 
-Dashboards & internal tools
+---
 
-Accessibility-focused applications
+# STEP 2 — Capability Registry
 
-Current Scope (Phase 1 — Navigation)
-Core Features
+Implement:
 
-Voice-based navigation
+- registerCapability(config)
+- getCapabilityById(id)
+- listCapabilitiesByScope(route)
 
-Browser-native Speech-to-text transcription (STT)
+Capability config must support:
 
-AI-based intent extraction (Stateless Backend)
+- id (required)
+- scope (optional)
+- entity (optional)
+- schema (optional)
+- execute() (required)
 
-Project-aware routing
+Reject duplicate IDs.
+Reject execution of unknown capability IDs.
 
-Explicit developer-provided navigation context
+---
 
-Safe handling of non-existent pages
+# STEP 3 — Entity Registry
 
-Organic visual feedback & retry logic via SDK
+Implement:
 
-Minimal frontend integration via SDK
+- registerEntityType(type, config)
+- resolveEntity(type, input)
 
-Explicit Non-Goals (for now)
+Entity config must support:
 
-No file editing
+- getAll()
+- search(query, all)
+- label(entity)
+- value(entity)
 
-No code generation
+Entity resolution must handle:
 
-No repo scanning
+- No matches → error state
+- One match → auto-resolve
+- Multiple matches → enter clarifying state
+- Resume execution after user selection
 
-No autonomous agent actions
+All entity resolution is client-side.
 
-Navigation Behavior (Phase 1)
-User says Behavior
-“Go to invoices” Navigate if page exists
-“Open dashboard” Navigate if page exists
-“Take me to client” Respond: page does not exist
-“Go to banana” Respond: page does not exist
-Developer Experience
+---
 
-Developers explicitly declare pages when initializing the SDK
+# STEP 4 — Runtime Execution Engine
 
-SDK remains lightweight and framework-agnostic
+Implement execution pipeline:
 
-Backend owns AI and security
+1. Start capability
+2. Resolve entity if defined
+3. Validate schema if defined
+4. Detect missing required fields
+5. Ask clarifying questions
+6. Confirm cross-page navigation if scope mismatch
+7. Execute capability
+8. Mark completed
+9. Handle errors
 
-No secrets in frontend
+Execution must support pause and resume.
 
-No magic inference
+No synchronous assumptions.
 
-Future Scope (Phase 2 — Agentic Commands)
+---
 
-Once navigation is stable and trusted, VocalRoute will expand to agentic commands, such as:
+# STEP 5 — Cross-Page Navigation Guard
 
-“Create a new page”
+If capability.scope !== currentRoute:
 
-“Add a route”
+- Enter "awaiting-confirmation"
+- Ask user inside sidebar
+- On confirm → router.push(scope)
+- Wait for route ready
+- Resume execution automatically
 
-“Generate a component”
+No silent navigation.
 
-“Refactor a file”
+---
 
-⚠️ These will be:
+# STEP 6 — Sidebar UI States
 
-opt-in
+Render UI strictly based on AgentMode:
 
-permission-based
+- listening
+- processing
+- clarifying
+- awaiting-confirmation
+- navigating
+- executing
+- completed
+- error
 
-confirmation-driven
+All interaction remains inside sidebar.
+No external modals.
 
-diff-previewed
+---
 
-never autonomous by default
+# STEP 7 — Introspection Capability
 
-Agentic behavior is explicitly out of scope for Phase 1, but the architecture is designed to support it later without rewrites.
+Register internal system capability:
 
-Key Product Philosophy
+__system.listCapabilities
 
-Explicit over implicit
+When invoked:
 
-Safe over magical
+- Return page-scoped capabilities
+- Include globally registered capabilities
+- Provide descriptions
+- Never hallucinate unregistered actions
 
-Constrained AI over free-form AI
+---
 
-Developer trust > AI autonomy
+# STEP 8 — AI Contract Enforcement
 
-One-line positioning
+AI must return strictly:
 
-VocalRoute is a project-aware voice navigation system that respects your app’s reality.
+```json
+{
+  "capability": "capability.id",
+  "params": {}
+}
+
+
+If capability does not exist:
+
+Enter error state
+
+Do not execute anything
+
+Never allow dynamic tool invocation.
+
+STEP 9 — Schema Handling (Optional)
+
+If capability defines schema:
+
+Validate payload before execution
+
+If missing fields → ask user
+
+Resume once fields are provided
+
+Only execute when schema passes validation
+
+Schema must not be mandatory for all capabilities.
+
+STEP 10 — Determinism Lock
+
+Add safeguards:
+
+No DOM querying
+
+No API selection by AI
+
+No auto workflow generation
+
+No unregistered execution
+
+No silent navigation
+
+The runtime must be deterministic.
+
+END GOAL
+
+Produce a stable, deterministic command runtime that:
+
+Uses AI only for semantic routing
+
+Keeps execution developer-defined
+
+Supports entity resolution
+
+Supports schema validation
+
+Supports cross-page confirmation
+
+Persists globally
+
+Operates entirely inside sidebar

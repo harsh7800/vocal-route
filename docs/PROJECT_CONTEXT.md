@@ -2,52 +2,45 @@
 
 ## What has been built so far
 
-### 1. Core Goal (Current Phase)
-VocalRoute enables voice-based navigation inside a web application. Users can navigate by voice:
-- “Take me to invoices”
-- “Go to dashboard”
-- “Open analytics”
+### 1. Unified Agent Hub (V2.5.0-A1)
+VocalRoute has evolved from simple voice navigation into a **Multimodal Agentic Interface**. It enables users to navigate and perform complex tasks using both **Voice** and **Text** commands, with all feedback consolidated into a unified side-panel.
 
-The system handles the full pipeline from hearing the user to performing the page redirection, with rich visual feedback.
-
-### 2. Architecture Overview (Stateless HTTP Model)
+### 2. Architecture Overview (Unified Hub Model)
 
 #### Frontend (Next.js App)
 - Uses the **VocalRoute SDK**.
-- Provides a rich, organic UI overlay (`OrganicVoiceOverlay`) for real-time feedback.
-- **Intentionally lean:** Only defines routes and reacts to SDK/Backend responses.
+- Integrates the `VocalRouteButton` (Trigger) and `AgentView` (Sidebar).
+- **Zero-Feedback Trigger:** The button is a stateless entry point. All listening, processing, and results happen within the Sidebar.
 
-#### SDK (Client-side hub)
-- **Transcription (STT):** Handles speech-to-text entirely in the browser using the Web Speech API (`SpeechTranscriber`). No raw audio is sent to the server.
-- **Visual Feedback:** Analyzes microphone levels locally (`VolumeVisualizer`) to drive a "liquid wobble" blob animation.
-- **Navigation:** Orchestrates the intent flow and handles the physical redirection using `next/navigation`.
-- **Stateless Communication:** Sends the final transcript to the backend via a simple HTTP POST request.
-- **UX Polish:** Integrated `nextjs-toploader` for automatic navigation progress indicators.
+#### SDK (Stateful Orchestrator)
+- **Transcription (STT):** Browser-native Web Speech API (`SpeechTranscriber`).
+- **State Management:** `VocalRouteProvider` manages a unified state for:
+    - **Listening:** Real-time pulse and transcription.
+    - **Processing:** AI intent resolution and "Thinking" state.
+    - **Agent State:** Managing the active `Agent` instance, current objectives, and step-by-step progress.
+- **Multimodal Input:** Supports both voice (via microphone) and manual typing (via the footer input in `AgentView`).
+- **Unified Feedback:** The sidebar is the single source of truth for the user. It slides in automatically when voice is triggered or an agent task starts.
+
+#### Agent Core (Logic Layer)
+- **Objective Driven:** Actions are grouped into high-level objectives.
+- **Step-by-Step Execution:** Tasks are broken down into discrete steps (Planning, Navigating, Observing, Acting).
+- **Safe Execution:** "Confirmation" steps are baked in for critical actions, requiring explicit user approval before proceeding.
 
 #### Backend (Node.js Stateless API)
-- **Stateless:** No persistent connections, sessions, or heartbeats.
-- **Intent Extraction:** Receives the transcript and available routes, then uses OpenAI to map the text to a specific route ID.
-- **Predictable:** strictly returns structured JSON with the intent, target, and confidence score.
+- **Intent Extraction:** Maps user input (voice or text) to specific route IDs or Agent actions using OpenAI.
+- **Structured Response:** Returns intent, target, and confidence scores to drive the SDK orchestrator.
 
-### 3. Navigation Pipeline (Optimized)
-1. **Microphone Capture** (Browser)
-2. **Local Transcription** (Web Speech API)
-3. **Volume Analysis** (Web Audio API -> Visual Wobble)
-4. **Final Transcript** -> HTTP POST (Backend)
-5. **Intent Resolution** (OpenAI -> Target Route)
-6. **Execution** (Next.js Router + TopLoader)
+### 3. Interaction Pipeline
+1. **Input:** User clicks trigger (starts voice) or types command in the sidebar footer.
+2. **Analysis:** SDK resolves intent via the AI Backend.
+3. **Execution:** 
+    - **Simple Navigation:** Redirects immediately using `next/navigation`.
+    - **Agent Task:** Sidebar slides open (if closed), shows the objective, and begins the step-by-step progress animation.
+4. **Verification:** For critical actions, the agent pauses and shows a "Confirm" dialog.
+5. **Completion:** Agent finishes the task and remains in a "Completed" state for review.
 
-This pipeline is optimized for speed and scalability, removing the complexity of WebSocket session management.
-
-### 4. AI Pipeline
-- **AI Layer 1 — Speech to Text:** Optimized through browser-native Web Speech API (zero latency, zero server cost).
-- **AI Layer 2 — Intent Extraction:** Backend-side OpenAI call. Takes the transcript + explicit route registry to ensure no hallucinations.
-
-### 5. UI & Feedback Features
-- **Organic Visualizer:** A "liquid wobble" blob that grows and agitates based on voice volume.
-- **Explicit States:** The UI clearly distinguishes between *Listening*, *Speaking* (detected voice), *Thinking* (API processing), and *Understood* (Success).
-- **Retry Logic:** Integrated "Try Again" button for when commands aren't recognized or errors occur.
-- **Toploader:** Automatic progress bar at the top of the screen during redirections.
-
-### 6. Key Design Principle
-The AI never guesses the project structure. The application explicitly provides a route registry, and the backend constrains the AI's output strictly to that registry. This ensure 100% accuracy and prevents the AI from suggesting non-existent pages.
+### 4. Key Design Principles
+- **Consolidated UI:** No global orbs or scattered feedback. Every interaction lives in the sidebar.
+- **Explicit over Implicit:** The agent never guesses. It follows the route registry and structured task definitions.
+- **Permission-Based:** Critical actions always require manual confirmation.
+- **Snapped Response:** Direct navigation is optimized for speed; complex tasks are optimized for transparency/feedback.
