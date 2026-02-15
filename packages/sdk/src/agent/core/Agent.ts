@@ -11,6 +11,8 @@ export interface AgentUIState {
   availableActions?: Action[];
   waitingReason?: string;
   transcript?: string;
+  proposedAction?: any;
+  messages: { role: "user" | "assistant"; content: string }[];
 }
 
 export class Agent {
@@ -20,11 +22,27 @@ export class Agent {
   private availableActions: Action[] = [];
   private waitingReason?: string;
   private transcript?: string;
+  private proposedAction?: any;
+  private messages: { role: "user" | "assistant"; content: string }[] = [];
 
   private stateChangeListeners: ((state: AgentUIState) => void)[] = [];
 
   constructor() {
     this.stateMachine = new AgentStateMachine();
+  }
+
+  public setProposedAction(action: any) {
+    this.proposedAction = action;
+    this.notify();
+  }
+
+  public addMessage(role: "user" | "assistant", content: string) {
+    this.messages.push({ role, content });
+    this.notify();
+  }
+
+  public getMessages() {
+    return this.messages;
   }
 
   public onStateChange(listener: (state: AgentUIState) => void) {
@@ -87,6 +105,8 @@ export class Agent {
       availableActions: [...this.availableActions],
       waitingReason: this.waitingReason,
       transcript: this.transcript,
+      proposedAction: this.proposedAction,
+      messages: [...this.messages],
     };
   }
 
@@ -106,6 +126,8 @@ export class Agent {
     this.availableActions = [];
     this.waitingReason = undefined;
     this.transcript = undefined;
+    this.proposedAction = undefined;
+    this.messages = [];
     this.transition("RESET");
   }
 

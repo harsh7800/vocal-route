@@ -15,12 +15,12 @@ export function VocalRouteButton({
   className,
   hideOnActive = true,
 }: VocalRouteButtonProps) {
-  const { startListening, isListening, isProcessing, agentState, setIsAgentMinimized, setIsAgentOpen, resetAgent } = useVocalRoute();
+  const { startListening, isListening, isProcessing, agentState, setIsAgentMinimized, setIsAgentOpen, isAgentOpen, resetAgent } = useVocalRoute();
   const [isOpen, setIsOpen] = useState(false);
 
   // If the agent is active or we are listening, we might want to hide the entry button
   // depending on user preference.
-  if (hideOnActive && (isListening || isProcessing)) return null;
+  if (hideOnActive && (isListening || isProcessing || isAgentOpen || agentState.state !== 'IDLE')) return null;
 
   const handleOpenAgent = () => {
     setIsAgentOpen(true);

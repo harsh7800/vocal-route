@@ -22,6 +22,8 @@ interface AgentViewProps {
       transcript?: string;
       isListening?: boolean;
       isProcessing?: boolean;
+      proposedAction?: any;
+      messages?: { role: "user" | "assistant"; content: string }[];
 }
 
 export const AgentView: React.FC<AgentViewProps> = ({
@@ -38,10 +40,12 @@ export const AgentView: React.FC<AgentViewProps> = ({
       isMinimized = false,
       transcript = "",
       isListening = false,
-      isProcessing = false
+      isProcessing = false,
+      proposedAction,
+      messages = []
 }) => {
       const [inputCmd, setInputCmd] = React.useState("");
-      const isIdle = state === AgentState.IDLE;
+      const isIdle = state === AgentState.IDLE && messages.length === 0;
       const isRunning = [
             AgentState.PROCESSING,
             AgentState.NAVIGATING,
@@ -136,192 +140,100 @@ export const AgentView: React.FC<AgentViewProps> = ({
 
                   {/* Main Content */}
                   <main className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-white">
-                        {/* Live Transcript / Input Status */}
-                        {(isListening || isProcessing || transcript) && (
-                              <motion.div
-                                    initial={{ opacity: 0, scale: 0.98 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    className="p-3 rounded-lg bg-slate-50/80 border border-slate-100"
-                              >
-                                    <div className="flex items-center gap-2 mb-1.5">
-                                          <div className={`w-1.5 h-1.5 rounded-full ${isListening ? 'bg-rose-500 animate-pulse' : isProcessing ? 'bg-blue-500 animate-spin' : 'bg-slate-400'}`}></div>
-                                          <span className="text-[9px] uppercase font-bold tracking-wider text-slate-400">
-                                                {isListening ? 'Listening' : isProcessing ? 'Processing' : 'Last Command'}
-                                          </span>
-                                    </div>
-                                    <p className={`text-xs leading-5 ${isListening || isProcessing ? 'text-slate-900 font-medium' : 'text-slate-500'}`}>
-                                          {transcript || (isListening ? "Listening..." : isProcessing ? "Thinking..." : "")}
-                                    </p>
-                              </motion.div>
-                        )}
-                        <AnimatePresence mode="wait">
-                              {isIdle ? (
+                        <AnimatePresence mode="popLayout">
+                              {/* Messages (Chat History) */}
+                              {messages.map((msg, idx) => (
                                     <motion.div
-                                          key="idle"
+                                          key={`msg-${idx}`}
                                           initial={{ opacity: 0, y: 10 }}
                                           animate={{ opacity: 1, y: 0 }}
-                                          className="flex flex-col items-center justify-center h-full py-12"
+                                          className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                                     >
-                                          <div className="relative mb-6">
-                                                <div className="absolute inset-0 bg-blue-50 blur-2xl rounded-full"></div>
-                                                <div className="relative border border-blue-100 p-4 rounded-xl bg-blue-50/30">
-                                                      <span className="material-symbols-outlined text-blue-500/40 text-4xl">terminal</span>
-                                                </div>
-                                          </div>
-                                          <p className="text-center text-slate-500 text-sm leading-relaxed max-w-[220px]">
-                                                Standing by for instructions. <br />
-                                                <span className="text-slate-400 text-xs">Speak or type a command to start.</span>
-                                          </p>
-                                    </motion.div>
-                              ) : isCompleted ? (
-                                    <motion.div
-                                          key="completed"
-                                          initial={{ opacity: 0, scale: 0.95 }}
-                                          animate={{ opacity: 1, scale: 1 }}
-                                          className="flex flex-col items-center justify-center h-full text-center space-y-6"
-                                    >
-                                          <div className="space-y-1">
-                                                <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400">Objective</span>
-                                                <p className="text-sm font-medium text-slate-600">{objective?.title}</p>
-                                          </div>
-                                          <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center">
-                                                <span className="material-symbols-outlined text-emerald-500 text-[32px]">check_circle</span>
-                                          </div>
-                                          <div className="font-mono text-[13px] text-slate-600">
-                                                <span className="font-bold text-slate-900">Done.</span> Task completed.
+                                          <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed ${msg.role === 'user'
+                                                ? 'bg-blue-600 text-white rounded-tr-sm'
+                                                : 'bg-slate-100 text-slate-800 rounded-tl-sm'
+                                                }`}>
+                                                {msg.content}
                                           </div>
                                     </motion.div>
-                              ) : isError ? (
+                              ))}
+
+                              {/* Live Transcript (if listening and no final message yet) */}
+                              {(isListening || isProcessing) && !transcript && (
                                     <motion.div
-                                          key="error"
-                                          initial={{ opacity: 0, scale: 0.95 }}
-                                          animate={{ opacity: 1, scale: 1 }}
-                                          className="flex flex-col items-center justify-center h-full text-center space-y-6"
-                                    >
-                                          <div className="w-16 h-16 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center">
-                                                <span className="material-symbols-outlined text-rose-500 text-[32px]">error</span>
-                                          </div>
-                                          <div className="space-y-2">
-                                                <p className="text-sm font-bold text-slate-900">Something went wrong</p>
-                                                <p className="text-xs text-slate-500 max-w-[200px] leading-relaxed">
-                                                      {waitingReason || "The agent encountered an error processing your request."}
-                                                </p>
-                                          </div>
-                                          <button
-                                                onClick={onCancel}
-                                                className="px-6 py-2 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-800 transition-all"
-                                          >
-                                                Dismiss
-                                          </button>
-                                    </motion.div>
-                              ) : (
-                                    <motion.div
-                                          key="active"
                                           initial={{ opacity: 0 }}
                                           animate={{ opacity: 1 }}
-                                          className="space-y-4"
+                                          className="flex justify-start"
                                     >
-                                          {/* Objective Summary */}
-                                          <div className="flex gap-3 text-[12px] font-mono">
-                                                <span className="text-slate-400 shrink-0 select-none">{new Date().toLocaleTimeString([], { hour12: false })}</span>
-                                                <span className="text-slate-500">
-                                                      Objective: <span className="text-slate-900 font-semibold">{objective?.title}</span>
-                                                </span>
+                                          <div className="bg-slate-50 border border-slate-100 p-3 rounded-2xl rounded-tl-sm text-xs text-slate-500 flex items-center gap-2">
+                                                <div className="flex gap-1">
+                                                      <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                                                      <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                                                      <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                                                </div>
                                           </div>
-
-                                          {/* Steps */}
-                                          {steps.map((step, idx) => (
-                                                <motion.div
-                                                      key={step.id}
-                                                      initial={{ opacity: 0, x: -10 }}
-                                                      animate={{ opacity: 1, x: 0 }}
-                                                      transition={{ delay: idx * 0.1 }}
-                                                      className="flex gap-3 items-start group"
-                                                >
-                                                      <div className={`mt-1 flex-shrink-0 w-5 h-5 flex items-center justify-center rounded border ${step.status === 'completed'
-                                                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                                                            : 'bg-blue-50 text-blue-600 border-blue-100'
-                                                            }`}>
-                                                            <span className="material-symbols-outlined text-[14px]">
-                                                                  {step.status === 'completed' ? 'check' : 'pending'}
-                                                            </span>
-                                                      </div>
-                                                      <div className="flex-1 min-w-0">
-                                                            <p className={`text-sm leading-tight ${step.status === 'completed' ? 'text-slate-900 font-medium' : 'text-slate-500'}`}>
-                                                                  {step.label}
-                                                            </p>
-                                                            <span className="text-[10px] text-slate-400 font-mono">
-                                                                  {new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                                                            </span>
-                                                      </div>
-                                                </motion.div>
-                                          ))}
-
-                                          {/* Clarification / Selection UI */}
-                                          {isClarifying && (
-                                                <motion.div
-                                                      initial={{ opacity: 0, y: 10 }}
-                                                      animate={{ opacity: 1, y: 0 }}
-                                                      className="mt-6 p-4 rounded-lg bg-orange-50/50 border border-orange-100 space-y-4 shadow-sm"
-                                                >
-                                                      <div className="flex items-start gap-3">
-                                                            <span className="material-symbols-outlined text-orange-600 text-[20px] mt-0.5">help_center</span>
-                                                            <div>
-                                                                  <p className="text-slate-800 font-bold">Select an option</p>
-                                                                  <p className="text-slate-500 text-xs mt-1 leading-normal">
-                                                                        {waitingReason || "Please choose one of the options below to proceed."}
-                                                                  </p>
-                                                            </div>
-                                                      </div>
-                                                      <div className="grid grid-cols-1 gap-2">
-                                                            {availableActions?.map(action => (
-                                                                  <button
-                                                                        key={action.id}
-                                                                        onClick={() => onAction(action.id)}
-                                                                        className="w-full py-2 px-3 text-left text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-all"
-                                                                  >
-                                                                        {action.label}
-                                                                  </button>
-                                                            ))}
-                                                      </div>
-                                                </motion.div>
-                                          )}
-
-                                          {/* Confirmation UI (Navigation or Cross-Page) */}
-                                          {isConfirming && (
-                                                <motion.div
-                                                      initial={{ opacity: 0, y: 10 }}
-                                                      animate={{ opacity: 1, y: 0 }}
-                                                      className="mt-6 p-4 rounded-lg bg-blue-50/50 border border-blue-100 space-y-4 shadow-sm"
-                                                >
-                                                      <div className="flex items-start gap-3">
-                                                            <span className="material-symbols-outlined text-blue-600 text-[20px] mt-0.5">info</span>
-                                                            <div>
-                                                                  <p className="text-slate-800 font-bold">Proceed?</p>
-                                                                  <p className="text-slate-500 text-xs mt-1 leading-normal">
-                                                                        {waitingReason || "Proceed with the requested action?"}
-                                                                  </p>
-                                                            </div>
-                                                      </div>
-                                                      <div className="flex items-center justify-end gap-2 pt-1">
-                                                            <button
-                                                                  onClick={onCancel}
-                                                                  className="px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-500 border border-slate-200 hover:bg-slate-50 transition-all bg-white"
-                                                            >
-                                                                  Cancel
-                                                            </button>
-                                                            <button
-                                                                  onClick={() => onAction('confirm')}
-                                                                  className="px-4 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100"
-                                                            >
-                                                                  Confirm
-                                                            </button>
-                                                      </div>
-                                                </motion.div>
-                                          )}
                                     </motion.div>
                               )}
                         </AnimatePresence>
+
+                        {/* Proposed Action Card */}
+                        {(isConfirming || state === AgentState.PROPOSING) && proposedAction && (
+                              <motion.div
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="border border-blue-100 bg-blue-50/50 rounded-xl p-4 space-y-3"
+                              >
+                                    <div className="flex items-center gap-2 text-blue-800">
+                                          <span className="material-symbols-outlined text-[20px]">verified</span>
+                                          <span className="text-xs font-bold uppercase tracking-wider">Proposed Action</span>
+                                    </div>
+                                    <div className="bg-white rounded-lg border border-blue-100 p-3 shadow-sm">
+                                          <div className="text-xs font-mono text-slate-500 mb-1">Capability: {proposedAction.capability}</div>
+                                          {proposedAction.summary && (
+                                                <div className="text-sm font-medium text-slate-900">{proposedAction.summary}</div>
+                                          )}
+                                          {proposedAction.params && Object.keys(proposedAction.params).length > 0 && (
+                                                <div className="mt-2 text-xs text-slate-600 bg-slate-50 p-2 rounded">
+                                                      <pre className="whitespace-pre-wrap font-mono">{JSON.stringify(proposedAction.params, null, 2)}</pre>
+                                                </div>
+                                          )}
+                                    </div>
+                                    <div className="flex gap-2 justify-end">
+                                          <button 
+                                                onClick={onCancel}
+                                                className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                          >
+                                                Cancel
+                                          </button>
+                                          <button
+                                                onClick={() => onAction('confirm')}
+                                                className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm shadow-blue-200 transition-colors"
+                                          >
+                                                Confirm Execution
+                                          </button>
+                                    </div>
+                              </motion.div>
+                        )}
+
+                        {/* Existing Execution Steps UI */}
+                        {state === AgentState.EXECUTING && (
+                              <div className="space-y-2 mt-4 pt-4 border-t border-slate-100">
+                                    <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">Execution Log</div>
+                                    {steps.map((step, idx) => (
+                                          <motion.div
+                                                key={step.id}
+                                                initial={{ opacity: 0, x: -10 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                className="flex gap-2 items-center"
+                                          >
+                                                <span className={`material-symbols-outlined text-[14px] ${step.status === 'completed' ? 'text-emerald-500' : 'text-slate-400'}`}>
+                                                      {step.status === 'completed' ? 'check_circle' : 'pending'}
+                                                </span>
+                                                <span className={`text-xs ${step.status === 'completed' ? 'text-slate-700' : 'text-slate-500'}`}>{step.label}</span>
+                                          </motion.div>
+                                    ))}
+                              </div>
+                        )}
                   </main>
 
                   {/* Footer / Input Area */}

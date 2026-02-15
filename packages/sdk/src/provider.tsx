@@ -15,6 +15,8 @@ import { AgentView } from './agent/ui/AgentView';
 import { AgentState } from './agent/types/AgentState';
 import { ExecutionEngine } from './agent/runtime/ExecutionEngine';
 import { vocalRegistry } from './agent/runtime/Registry';
+import { AgentConversation } from './agent/core/conversation/Conversation';
+import { ExecutionGate } from './agent/core/execution/Gate';
 
 export type ContextType = {
       isListening: boolean;
@@ -108,14 +110,29 @@ export function VocalRouteProvider({
             try {
                   let intent: VocalIntent;
 
+
                   if (aiConfig?.enabled && aiConfig?.openaiApiKey) {
-                        intent = await resolveIntent(text, registry, {
-                              openaiApiKey: aiConfig.openaiApiKey,
-                              baseURL: aiConfig.baseURL,
-                              intentSummaryModel: aiConfig.intentModel,
-                              transcriptModel: aiConfig.transcriptModel,
-                              strictMode: aiConfig.strictMode,
-                        });
+                        try {
+                              const conversation = new AgentConversation({
+                                    openaiApiKey: aiConfig.openaiApiKey,
+                                    baseURL: aiConfig.baseURL,
+                                    model: aiConfig.intentModel
+                              });
+
+                              const output = await conversation.interpret(text, {
+                                    registry,
+                                    history: agentInstance.getMessages()
+                              });
+
+                              const gate = new ExecutionGate(agentInstance, engine);
+                              await gate.handle(output);
+                        } catch (convErr) {
+                              console.error("Conversation Error", convErr);
+                              agentInstance.transition(AgentState.ERROR);
+                              setError(convErr instanceof Error ? convErr.message : "Conversation failed");
+                        }
+                        setIsProcessing(false);
+                        return;
                   } else {
                         intent = resolveLocalIntent(text, registry);
                   }
@@ -267,6 +284,7 @@ export function VocalRouteProvider({
             }}>
                   <NextTopLoader showSpinner={false} color="#22d3ee" />
                   {children}
+
                   {(agentState.state !== AgentState.IDLE || isAgentOpen) && (
                         <div style={{
                               position: 'fixed',
