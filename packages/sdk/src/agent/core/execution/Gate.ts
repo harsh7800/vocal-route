@@ -26,13 +26,18 @@ export class ExecutionGate {
         break;
 
       case "proposed_action":
-        this.agent.setProposedAction(output);
-        
-        // Check confirmation policy
-        if (output.requiresConfirmation) {
+        const isNavigation = output.capability.startsWith("/");
+
+        if (output.requiresConfirmation || isNavigation) {
+          // Show the proposed action card and wait for user to confirm.
+          // Navigation MUST go through confirmation because only the
+          // provider layer has router access to handle navigation.
+          this.agent.setProposedAction(output);
+          this.agent.clearSteps();
           this.agent.transition("REQUIRE_CONFIRMATION");
         } else {
-          // Auto-execute
+          // Auto-execute non-navigation capabilities directly
+          this.agent.clearSteps();
           await this.execute(output.capability, output.params, output.summary);
         }
         break;

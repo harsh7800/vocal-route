@@ -217,7 +217,7 @@ export const SimpleChatView: React.FC<ChatViewProps> = ({
 
                               {/* Action Steps Execution Log */}
                               <AnimatePresence>
-                                    {steps.length > 0 && (state === AgentState.EXECUTING || state === AgentState.COMPLETED || state === AgentState.NAVIGATING || state === AgentState.ERROR) && (
+                                    {steps.length > 0 && !proposedAction && (state === AgentState.EXECUTING || state === AgentState.COMPLETED || state === AgentState.NAVIGATING || state === AgentState.ERROR) && (
                                           <motion.div
                                                 initial={{ opacity: 0, y: 10 }}
                                                 animate={{ opacity: 1, y: 0 }}

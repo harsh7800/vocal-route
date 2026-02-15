@@ -24,6 +24,7 @@ export class Agent {
   private transcript?: string;
   private proposedAction?: any;
   private messages: { role: "user" | "assistant"; content: string }[] = [];
+  private currentTurnStartIndex: number = 0;
 
   private stateChangeListeners: ((state: AgentUIState) => void)[] = [];
 
@@ -49,6 +50,11 @@ export class Agent {
     return this.messages;
   }
 
+  /** Returns only messages from the current turn (for AI context) */
+  public getCurrentTurnMessages() {
+    return this.messages.slice(this.currentTurnStartIndex);
+  }
+
   public onStateChange(listener: (state: AgentUIState) => void) {
     this.stateChangeListeners.push(listener);
     return () => {
@@ -64,21 +70,38 @@ export class Agent {
   }
 
   public async receiveInput(input: string, mode: "voice" | "text" = "text") {
+    const currentState = this.stateMachine.getState();
+    const isContinuation = currentState === AgentState.CLARIFYING;
+
     if (mode === "voice") {
       this.transition("START_LISTENING");
     } else {
       this.transition("START_PROCESSING");
     }
 
-    this.currentObjective = createObjective(input);
     this.steps = [];
     this.availableActions = [];
     this.waitingReason = undefined;
+    this.proposedAction = undefined;
+
+    if (!isContinuation) {
+      // New task: reset objective and advance turn index
+      this.currentObjective = createObjective(input);
+      this.currentTurnStartIndex = this.messages.length;
+    }
+    // If continuation (clarification reply), keep the same turn context
+    // so the AI sees the full clarification exchange
+
     this.notify();
   }
 
   public setTranscript(text: string) {
     this.transcript = text;
+    this.notify();
+  }
+
+  public clearSteps() {
+    this.steps = [];
     this.notify();
   }
 
@@ -94,6 +117,18 @@ export class Agent {
     this.steps.push(step);
     this.notify();
     return step;
+  }
+
+  public completeStep(success: boolean = true, newLabel?: string) {
+    const lastStep = this.steps[this.steps.length - 1];
+    if (lastStep && lastStep.status === "pending") {
+      lastStep.status = success ? "completed" : "failed";
+      lastStep.completedAt = new Date();
+      if (newLabel) lastStep.label = newLabel;
+      this.notify();
+    } else {
+      this.addStep(newLabel || "Completed", "completed");
+    }
   }
 
   public transition(type: any, payload?: any) {

@@ -4,6 +4,17 @@ import { RouteRegistry } from "../../../types";
 
 export interface ConversationContext {
   registry: RouteRegistry;
+  capabilities?: {
+    id: string;
+    description: string;
+    scope?: string;
+    params?: {
+      name: string;
+      type: string;
+      required?: boolean;
+      description?: string;
+    }[];
+  }[];
   history?: { role: "user" | "assistant"; content: string }[];
   currentPath?: string;
 }
@@ -15,40 +26,37 @@ export interface ConversationConfig {
 }
 
 const SYSTEM_PROMPT = `
-You are a friendly, intelligent, and helpful AI assistant within a web application.
-Your goal is to converse naturally with the user, answer generic questions, and help them navigate or perform actions using the provided registry.
+You are a friendly AI assistant within a web application.
+Your job is to help the user perform actions or navigate pages. Be quick, decisive, and concise.
 
-You must output a JSON object adhering to this strict schema:
+You must output a JSON object matching one of these types:
 
 type AgentOutput =
-  | {
-      type: "message";
-      content: string; // The response message. Use Markdown for formatting.
-    }
-  | {
-      type: "proposed_action";
-      capability: string; // The ID of the capability to execute
-      params: Record<string, any>;
-      requiresConfirmation: boolean;
-      summary: string;
-    }
-  | {
-      type: "clarification_request";
-      missing: string[]; 
-      message: string;
-    };
+  | { type: "message"; content: string }
+  | { type: "proposed_action"; capability: string; params: Record<string, any>; requiresConfirmation: boolean; summary: string }
+  | { type: "clarification_request"; missing: string[]; message: string };
 
-**Core Behaviors:**
-1. **Be Conversational:** If the user says "Hello", "Hi", or asks a general question, respond warmly and naturally with a 'message'. Do NOT immediately list technical capabilities unless asked.
-2. **Be Helpful:** If the user asks "What can I do?", provide a summarized, easy-to-read list of key capabilities from the registry, formatted with Markdown bullet points.
-3. **Propose Actions:** Only propose an action if the user clearly intends to perform a task (e.g., "Go to dashboard", "Create invoice").
-4. **Clarify Ambiguity:** If the user's request is vague (e.g., "Delete it"), ask for clarification nicely.
+**CRITICAL — Capability vs Route Priority:**
+- ALWAYS check the Capabilities list FIRST. If a capability matches the user's intent (download, export, refund, deactivate, etc.), use the capability ID (e.g. "invoices.download"). NEVER use a route path for actions.
+- Use a route path (e.g. "/invoices") ONLY when the user wants to NAVIGATE/VIEW a page (e.g. "go to invoices", "open dashboard", "show customers").
+- If NO capability AND NO route matches, respond with a message saying you can't do that.
 
-**Rules:**
-- **NEVER execute capabilities directly.** Always use "proposed_action".
-- **NEVER hallucinate capabilities.** strictly adhere to the provided Registry.
-- **Confirmation:** Mutating actions (create, delete, update) always require confirmation. Read-only actions (view, list) usually do not.
-- **Tone:** Professional, friendly, and concise.
+**Examples:**
+- "download all invoices" → proposed_action with capability: "invoices.download" (NOT "/invoices")
+- "go to invoices" → proposed_action with capability: "/invoices"
+- "refund the customer" → proposed_action with capability: "payments.refund"
+- "show me the dashboard" → proposed_action with capability: "/dashboard"
+- "deactivate unpaid invoices" → proposed_action with capability: "invoices.bulk_deactivate"
+
+**Params-Aware Clarification:**
+- Check the capability's declared params. If it says "Params: NONE", do NOT ask for any parameters. Just propose the action.
+- Only ask about REQUIRED params that are missing. Never invent params.
+
+**Other Rules:**
+- When user confirms ("yes", "sure", "do it"), immediately propose the discussed action.
+- Mutating actions (delete, update, refund, deactivate) → requiresConfirmation: true
+- Non-mutating actions (download, export, navigate, view) → requiresConfirmation: false
+- Be concise. No verbose explanations.
 `;
 
 export class AgentConversation {
@@ -84,23 +92,31 @@ export class AgentConversation {
       )
       .join("\n");
 
+    const capabilitiesDesc = (context.capabilities || [])
+      .map((c) => {
+        const paramInfo =
+          c.params && c.params.length > 0
+            ? `, Params: [${c.params.map((p) => `${p.name}(${p.type}${p.required ? ", required" : ", optional"})`).join(", ")}]`
+            : `, Params: NONE (takes no input)`;
+        return `- ID: ${c.id}, Description: ${c.description}${c.scope ? `, Scope: ${c.scope}` : ""}${paramInfo}`;
+      })
+      .join("\n");
+
     const history = context.history || [];
-    // Ensure the last message matches the input, or add it if missing
-    const lastMsg = history[history.length - 1];
+    const systemContent =
+      SYSTEM_PROMPT +
+      `\n\n**Routes (for navigation):**\n${registryDesc}` +
+      (capabilitiesDesc
+        ? `\n\n**Capabilities (for actions):**\n${capabilitiesDesc}`
+        : "");
+
     const messages: any[] = [
       {
         role: "system",
-        content: SYSTEM_PROMPT + `\n\n**Registry:**\n${registryDesc}`,
+        content: systemContent,
       },
       ...history,
     ];
-
-    if (!lastMsg || (lastMsg.role === "user" && lastMsg.content !== input)) {
-      // If the history doesn't contain the current input as the last user message, add it.
-      // However, if receiveInput was called, it should be there.
-      // We'll trust history if provided.
-      // Actually, let's just use history as is.
-    }
 
     const response = await this.openai.chat.completions.create({
       model: this.model,

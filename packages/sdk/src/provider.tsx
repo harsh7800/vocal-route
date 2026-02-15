@@ -123,7 +123,15 @@ export function VocalRouteProvider({
 
                               const output = await conversation.interpret(text, {
                                     registry,
-                                    history: agentInstance.getMessages()
+                                    capabilities: vocalRegistry.listCapabilities()
+                                          .filter(c => c.id !== '__system.listCapabilities' && c.id !== 'navigation')
+                                          .map(c => ({
+                                                id: c.id,
+                                                description: c.description || '',
+                                                scope: c.scope,
+                                                params: c.params || [],
+                                          })),
+                                    history: agentInstance.getCurrentTurnMessages()
                               });
 
                               const gate = new ExecutionGate(agentInstance, engine);
@@ -251,12 +259,77 @@ export function VocalRouteProvider({
             });
       };
 
-      const executeAgentAction = (actionId: string) => {
+      const executeAgentAction = async (actionId: string) => {
             if (actionId === 'confirm') {
-                  // Engine will handle resuming from confirmation states
-                  // For now, simple completion for demo compatibility
-                  agentInstance.transition('COMPLETE');
-                  agentInstance.addStep('Confirmed', 'completed');
+                  const action = agentState.proposedAction;
+                  if (!action) return;
+
+                  // Clear proposed action and old steps
+                  agentInstance.setProposedAction(undefined);
+                  agentInstance.clearSteps();
+                  agentInstance.transition("START_EXECUTING");
+                  agentInstance.addStep(action.summary || `Executing ${action.capability}`, "pending");
+
+                  try {
+                        const isPath = action.capability.startsWith('/');
+
+                        if (isPath) {
+                              // Validate route exists in registry
+                              const matchedRoute = registry.find(r => {
+                                    // Exact match or pattern match (e.g. /customers/[customerId])
+                                    const routePattern = r.path.replace(/\[([^\]]+)\]/g, '[^/]+');
+                                    const regex = new RegExp(`^${routePattern}$`);
+                                    return regex.test(action.capability) || r.path === action.capability;
+                              });
+
+                              if (!matchedRoute) {
+                                    agentInstance.addMessage(
+                                          "assistant",
+                                          `The page "${action.capability}" is not available in my context. I can only navigate to registered pages.`
+                                    );
+                                    agentInstance.transition("FAIL");
+                                    return;
+                              }
+
+                              // Navigation — interpolate params into path
+                              let finalPath = action.capability;
+                              if (action.params) {
+                                    for (const [key, value] of Object.entries(action.params)) {
+                                          finalPath = finalPath.replace(`[${key}]`, String(value));
+                                    }
+                              }
+                              if (currentParams) {
+                                    for (const [key, value] of Object.entries(currentParams)) {
+                                          const val = Array.isArray(value) ? value.join('/') : String(value);
+                                          finalPath = finalPath.replace(`[${key}]`, val);
+                                    }
+                              }
+                              router.push(finalPath);
+                              agentInstance.addStep(`Navigated to ${finalPath}`, "completed");
+                        } else {
+                              // Validate capability is registered
+                              const capability = vocalRegistry.getCapability(action.capability);
+                              if (!capability || capability.id === 'navigation' || capability.id === '__system.listCapabilities') {
+                                    agentInstance.addMessage(
+                                          "assistant",
+                                          `I don't have a registered task called "${action.capability}". This action is not available in my context.`
+                                    );
+                                    agentInstance.transition("FAIL");
+                                    return;
+                              }
+
+                              // Execute the capability
+                              agentInstance.addStep(`Running ${capability.id}...`, "pending");
+                              await capability.execute(action.params || {});
+                              agentInstance.addStep(`Completed ${capability.id}`, "completed");
+                        }
+
+                        agentInstance.transition("COMPLETE");
+                  } catch (e: any) {
+                        console.error("[VocalRoute] Execution failed:", e);
+                        agentInstance.addMessage("assistant", `Execution failed: ${e.message}`);
+                        agentInstance.transition("FAIL");
+                  }
             }
       };
 

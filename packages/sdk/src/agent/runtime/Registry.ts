@@ -40,7 +40,18 @@ class Registry {
   }
 
   public getCapability(id: CapabilityId): CapabilityConfig | undefined {
-    return this.capabilities.get(id);
+    let capability = this.capabilities.get(id);
+    if (!capability) {
+      // Fallback: Check if ID matches any scope (e.g. "/invoices")
+      // This is helpful if the agent uses the path as the ID
+      for (const cap of this.capabilities.values()) {
+        if (cap.scope === id) {
+          capability = cap;
+          break;
+        }
+      }
+    }
+    return capability;
   }
 
   public listCapabilities(scope?: string): CapabilityConfig[] {

@@ -1,4 +1,4 @@
-export type StepStatus = "pending" | "completed" | "waiting";
+export type StepStatus = "pending" | "completed" | "waiting" | "failed";
 
 export interface Step {
   id: string;
