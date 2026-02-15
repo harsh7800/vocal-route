@@ -126,11 +126,16 @@ Respond in this exact JSON format:
   }
 
   // 2. Intent Resolution
+  if (options.strictMode && !options.intentSummaryModel) {
+    throw new Error(
+      "VocalRoute: 'intentModel' is required when 'strictMode' is enabled.",
+    );
+  }
+
   const targetModel = options.intentSummaryModel || "gpt-4o-mini";
-  const modelQueue =
-    options.strictMode && options.intentSummaryModel
-      ? [options.intentSummaryModel]
-      : [targetModel, ...FALLBACK_MODELS.filter((m) => m !== targetModel)];
+  const modelQueue = options.strictMode
+    ? [options.intentSummaryModel!]
+    : [targetModel, ...FALLBACK_MODELS.filter((m) => m !== targetModel)];
 
   let resolutionError: any = null;
 

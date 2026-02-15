@@ -11,7 +11,8 @@ import { VocalRouteButton } from './components/VocalRouteButton';
 import { resolveLocalIntent, resolveIntent } from './ai/resolver';
 import type { VocalIntent, RouteRegistry, VocalAIConfig } from './types';
 import { Agent, AgentUIState } from './agent/core/Agent';
-import { AgentView } from './agent/ui/AgentView';
+// import { AgentView } from './agent/ui/AgentView';
+import { SimpleChatView } from './agent/ui/SimpleChatView';
 import { AgentState } from './agent/types/AgentState';
 import { ExecutionEngine } from './agent/runtime/ExecutionEngine';
 import { vocalRegistry } from './agent/runtime/Registry';
@@ -112,6 +113,7 @@ export function VocalRouteProvider({
 
 
                   if (aiConfig?.enabled && aiConfig?.openaiApiKey) {
+                        agentInstance.addMessage("user", text); // Add user message immediately
                         try {
                               const conversation = new AgentConversation({
                                     openaiApiKey: aiConfig.openaiApiKey,
@@ -126,9 +128,13 @@ export function VocalRouteProvider({
 
                               const gate = new ExecutionGate(agentInstance, engine);
                               await gate.handle(output);
-                        } catch (convErr) {
+                        } catch (convErr: any) {
                               console.error("Conversation Error", convErr);
                               agentInstance.transition(AgentState.ERROR);
+                              const errorMessage = process.env.NODE_ENV === "development"
+                                    ? `I encountered an error: ${convErr.message || "Unknown error"}`
+                                    : "I encountered an error while processing your request.";
+                              agentInstance.addMessage("assistant", errorMessage);
                               setError(convErr instanceof Error ? convErr.message : "Conversation failed");
                         }
                         setIsProcessing(false);
@@ -257,6 +263,9 @@ export function VocalRouteProvider({
       const resetAgent = () => {
             agentInstance.reset();
             setIsAgentOpen(false);
+            if (agentState.state == AgentState.IDLE) {
+                  // Force a UI update if needed
+            }
       };
 
       return (
@@ -285,37 +294,43 @@ export function VocalRouteProvider({
                   <NextTopLoader showSpinner={false} color="#22d3ee" />
                   {children}
 
-                  {(agentState.state !== AgentState.IDLE || isAgentOpen) && (
+                  {(agentState.state !== AgentState.IDLE || isAgentOpen || agentState.messages.length > 0) && (
                         <div style={{
                               position: 'fixed',
                               bottom: '2rem',
                               right: isAgentMinimized ? '1.5rem' : '6rem',
-                              top: isAgentMinimized ? 'auto' : '1.5rem',
-                              width: isAgentMinimized ? 'auto' : '360px',
+                              top: isAgentMinimized ? 'auto' : 'auto',
+                              width: isAgentMinimized ? 'auto' : '350px',
                               zIndex: 9000,
                               backgroundColor: isAgentMinimized ? 'transparent' : '#ffffff',
                               borderRadius: isAgentMinimized ? '9999px' : '0.75rem',
-                              overflow: 'hidden',
-                              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-                              border: isAgentMinimized ? 'none' : '1px solid #f1f5f9',
-                              transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                              overflow: 'visible',
                         }}>
-                              <AgentView
-                                    state={agentState.state}
-                                    objective={agentState.objective}
-                                    steps={agentState.steps}
-                                    availableActions={agentState.availableActions}
-                                    waitingReason={agentState.waitingReason}
-                                    onAction={executeAgentAction}
-                                    onCancel={resetAgent}
-                                    onClose={resetAgent}
-                                    onMinimize={() => setIsAgentMinimized(!isAgentMinimized)}
-                                    onCommandSubmit={processIntent}
-                                    isMinimized={isAgentMinimized}
-                                    transcript={agentState.transcript}
-                                    isListening={isListening}
-                                    isProcessing={isProcessing}
-                              />
+                              {isAgentMinimized ? (
+                                    <div
+                                          onClick={() => setIsAgentMinimized(false)}
+                                          className="flex items-center gap-3 px-4 py-3 bg-blue-600 cursor-pointer hover:bg-blue-700 transition-all rounded-full border border-blue-500 shadow-lg text-white group"
+                                    >
+                                          <div className="relative">
+                                                <span className="material-symbols-outlined text-white text-[24px]">chat_bubble</span>
+                                          </div>
+                                          <span className="text-[10px] uppercase font-bold tracking-widest leading-none opacity-80">Chat</span>
+                                    </div>
+                              ) : (
+                                    <SimpleChatView
+                                          messages={agentState.messages}
+                                          isProcessing={isProcessing}
+                                          onSendMessage={(msg) => processIntent(msg)}
+                                          onClose={resetAgent}
+                                          onMinimize={() => setIsAgentMinimized(true)}
+                                          proposedAction={agentState.proposedAction}
+                                          onAction={executeAgentAction}
+                                                onCancel={() => {
+                                                      agentInstance.setProposedAction(undefined);
+                                                      agentInstance.transition("IDLE");
+                                                }}
+                                          />
+                              )}
                         </div>
                   )}
                   {showButton && <VocalRouteButton {...buttonConfig} />}

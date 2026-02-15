@@ -37,6 +37,10 @@ export class Agent {
   }
 
   public addMessage(role: "user" | "assistant", content: string) {
+    const lastMsg = this.messages[this.messages.length - 1];
+    if (lastMsg && lastMsg.role === role && lastMsg.content === content) {
+      return; // Deduplicate
+    }
     this.messages.push({ role, content });
     this.notify();
   }
