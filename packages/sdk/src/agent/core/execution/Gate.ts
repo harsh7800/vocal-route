@@ -17,12 +17,12 @@ export class ExecutionGate {
       case "message":
         this.agent.addMessage("assistant", output.content);
         // End of turn.
-        this.agent.transition(AgentState.IDLE);
+        this.agent.transition("RESET");
         break;
 
       case "clarification_request":
         this.agent.addMessage("assistant", output.message);
-        this.agent.transition(AgentState.CLARIFYING);
+        this.agent.transition("START_CLARIFYING");
         break;
 
       case "proposed_action":
@@ -30,7 +30,7 @@ export class ExecutionGate {
         
         // Check confirmation policy
         if (output.requiresConfirmation) {
-          this.agent.transition(AgentState.AWAITING_CONFIRMATION);
+          this.agent.transition("REQUIRE_CONFIRMATION");
         } else {
           // Auto-execute
           await this.execute(output.capability, output.params, output.summary);
@@ -40,19 +40,22 @@ export class ExecutionGate {
   }
 
   async execute(capabilityId: string, params: any, summary?: string) {
-    this.agent.transition(AgentState.EXECUTING);
+    this.agent.transition("START_EXECUTING");
     if(summary) this.agent.addStep(summary, "pending");
     
     try {
-        await this.engine.processIntent({
-            capability: capabilityId,
-            params: params
-        });
-        if(summary) this.agent.addStep(summary, "completed");
-        this.agent.transition(AgentState.COMPLETED);
+      await this.engine.processIntent({
+        capability: capabilityId,
+        params: params,
+      });
+      if (summary) this.agent.addStep(summary, "completed");
+      this.agent.transition("COMPLETE");
     } catch (e: any) {
-        this.agent.addMessage("assistant", `I encountered an error: ${e.message}`);
-        this.agent.transition(AgentState.ERROR);
+      this.agent.addMessage(
+        "assistant",
+        `I encountered an error: ${e.message}`,
+      );
+      this.agent.transition("FAIL");
     }
   }
 }

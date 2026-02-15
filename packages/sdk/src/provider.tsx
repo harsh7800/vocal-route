@@ -130,7 +130,7 @@ export function VocalRouteProvider({
                               await gate.handle(output);
                         } catch (convErr: any) {
                               console.error("Conversation Error", convErr);
-                              agentInstance.transition(AgentState.ERROR);
+                              agentInstance.transition('FAIL', { message: convErr.message });
                               const errorMessage = process.env.NODE_ENV === "development"
                                     ? `I encountered an error: ${convErr.message || "Unknown error"}`
                                     : "I encountered an error while processing your request.";
@@ -207,10 +207,10 @@ export function VocalRouteProvider({
                         // For a "Task Engine", we don't error out on chitchat, we just go back to standing by.
                         // We reset to IDLE but keep the transcript visible for a moment if needed, 
                         // or just reset completely to show "Standing By".
-                        agentInstance.transition('IDLE');
+                        agentInstance.transition('RESET');
                   } else {
                         // Handled but no state transition happened?
-                        agentInstance.transition('IDLE');
+                        agentInstance.transition('RESET');
                   }
 
             } catch (err: any) {
@@ -327,8 +327,10 @@ export function VocalRouteProvider({
                                           onAction={executeAgentAction}
                                                 onCancel={() => {
                                                       agentInstance.setProposedAction(undefined);
-                                                      agentInstance.transition("IDLE");
+                                                      agentInstance.transition("RESET");
                                                 }}
+                                                state={agentState.state}
+                                                steps={agentState.steps}
                                           />
                               )}
                         </div>

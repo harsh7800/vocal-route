@@ -4,6 +4,8 @@ import React, { useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import { ScrollArea } from "../../components/ui/scroll-area";
+import { AgentState } from "../types/AgentState";
+import { Step } from "../core/Step";
 
 interface ChatViewProps {
       messages: { role: "user" | "assistant"; content: string }[];
@@ -14,6 +16,8 @@ interface ChatViewProps {
       proposedAction?: any;
       onAction?: (actionId: string) => void;
       onCancel?: () => void;
+      state?: AgentState;
+      steps?: Step[];
 }
 
 export const SimpleChatView: React.FC<ChatViewProps> = ({
@@ -25,6 +29,8 @@ export const SimpleChatView: React.FC<ChatViewProps> = ({
       proposedAction,
       onAction,
       onCancel,
+      state = AgentState.IDLE,
+      steps = [],
 }) => {
       const [input, setInput] = React.useState("");
       const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -35,7 +41,7 @@ export const SimpleChatView: React.FC<ChatViewProps> = ({
 
       useEffect(() => {
             scrollToBottom();
-      }, [messages, isProcessing, proposedAction]);
+      }, [messages, isProcessing, proposedAction, steps, state]);
 
       const handleSubmit = (e: React.FormEvent) => {
             e.preventDefault();
@@ -45,21 +51,49 @@ export const SimpleChatView: React.FC<ChatViewProps> = ({
             }
       };
 
+      const getStatusText = () => {
+            switch (state) {
+                  case AgentState.PROCESSING: return "Thinking...";
+                  case AgentState.NAVIGATING: return "Navigating...";
+                  case AgentState.EXECUTING: return "Working...";
+                  case AgentState.LISTENING: return "Listening...";
+                  case AgentState.AWAITING_CONFIRMATION: return "Confirm Action";
+                  case AgentState.COMPLETED: return "Task Complete";
+                  case AgentState.ERROR: return "Error";
+                  default: return "AI Assistant";
+            }
+      };
+
+      const getStatusColor = () => {
+            switch (state) {
+                  case AgentState.PROCESSING:
+                  case AgentState.NAVIGATING:
+                  case AgentState.EXECUTING:
+                        return "bg-blue-500 animate-pulse";
+                  case AgentState.LISTENING:
+                        return "bg-rose-500 animate-pulse";
+                  case AgentState.COMPLETED:
+                        return "bg-emerald-500";
+                  case AgentState.ERROR:
+                        return "bg-rose-500";
+                  case AgentState.AWAITING_CONFIRMATION:
+                        return "bg-amber-500 animate-pulse";
+                  default:
+                        return "bg-emerald-400";
+            }
+      };
+
       return (
             <div
-                  className="flex flex-col w-[350px] relative bg-white rounded-xl shadow-2xl overflow-hidden font-sans border border-slate-100 overflow-y-auto"
+                  className="flex flex-col w-[350px] relative bg-white rounded-xl shadow-2xl overflow-hidden font-sans border border-slate-100"
                   style={{ height: 'min(600px, 90vh)' }}
             >
                   {/* Header */}
-                  <div className="bg-slate-900 px-4 py-3 flex justify-between items-center shrink-0">
+                  <div className="bg-slate-900 px-4 py-3 flex justify-between items-center shrink-0 transition-colors duration-300">
                         <div className="flex items-center gap-2">
-                              {proposedAction ? (
-                                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
-                              ) : (
-                                    <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
-                              )}
-                              <span className="text-white font-bold text-sm tracking-wide">
-                                    AI Assistant
+                              <div className={`w-2 h-2 rounded-full transition-all duration-300 ${getStatusColor()}`}></div>
+                              <span className="text-white font-bold text-sm tracking-wide transition-opacity duration-300">
+                                    {getStatusText()}
                               </span>
                         </div>
                         <div className="flex items-center gap-1">
@@ -81,10 +115,9 @@ export const SimpleChatView: React.FC<ChatViewProps> = ({
                   </div>
 
                   {/* Messages Area */}
-                  <div className="flex-1 relative min-h-0 bg-white">
-                        <ScrollArea className="absolute inset-0">
+                  <ScrollArea className="flex-1 relative min-h-0 bg-white overflow-y-auto">
                               <div className="p-4 space-y-6">
-                                    {messages.length === 0 && !proposedAction ? (
+                              {messages.length === 0 && !proposedAction && steps.length === 0 ? (
                                           <div className="h-full flex flex-col items-center justify-center text-center opacity-50 min-h-[300px]">
                                                 <span className="material-symbols-outlined text-4xl mb-2 text-slate-300">
                                                       chat_bubble
@@ -139,10 +172,13 @@ export const SimpleChatView: React.FC<ChatViewProps> = ({
                                     )}
 
                                     {/* Proposed Action Card */}
+                              <AnimatePresence>
                                     {proposedAction && (
                                           <motion.div
-                                                initial={{ opacity: 0, scale: 0.95 }}
-                                                animate={{ opacity: 1, scale: 1 }}
+                                                key="proposed-action"
+                                                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                exit={{ opacity: 0, scale: 0.95, y: 10 }}
                                                 className="border border-blue-100 bg-blue-50/50 rounded-xl p-3 space-y-3"
                                           >
                                                 <div className="flex items-center gap-2 text-blue-800">
@@ -177,8 +213,58 @@ export const SimpleChatView: React.FC<ChatViewProps> = ({
                                                 </div>
                                           </motion.div>
                                     )}
+                              </AnimatePresence>
 
-                                    {isProcessing && (
+                              {/* Action Steps Execution Log */}
+                              <AnimatePresence>
+                                    {steps.length > 0 && (state === AgentState.EXECUTING || state === AgentState.COMPLETED || state === AgentState.NAVIGATING || state === AgentState.ERROR) && (
+                                          <motion.div
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className="space-y-2 mt-4 pt-4 border-t border-slate-100"
+                                          >
+                                                <div className="flex items-center justify-between">
+                                                      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Activity Log</span>
+                                                      {state === AgentState.EXECUTING && (
+                                                            <span className="flex h-2 w-2 relative">
+                                                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                                                            </span>
+                                                      )}
+                                                </div>
+                                                <div className="bg-slate-50 rounded-lg p-2 space-y-2 border border-slate-100">
+                                                      {steps.map((step, idx) => {
+                                                            const isFailed = step.label.toLowerCase().includes("failed") || step.label.toLowerCase().includes("error");
+                                                            return (
+                                                                  <motion.div
+                                                                        key={step.id || idx}
+                                                                        initial={{ opacity: 0, x: -10 }}
+                                                                        animate={{ opacity: 1, x: 0 }}
+                                                                        transition={{ delay: idx * 0.1 }}
+                                                                        className="flex gap-2 items-center"
+                                                                  >
+                                                                        {isFailed ? (
+                                                                              <span className="material-symbols-outlined text-[14px] text-rose-500 font-bold shrink-0">error</span>
+                                                                        ) : step.status === 'completed' ? (
+                                                                              <span className="material-symbols-outlined text-[14px] text-emerald-500 font-bold shrink-0">check</span>
+                                                                        ) : step.status === 'pending' && idx === steps.length - 1 && state === AgentState.EXECUTING ? (
+                                                                              <span className="w-3 h-3 border-2 border-slate-300 border-t-blue-500 rounded-full animate-spin shrink-0"></span>
+                                                                        ) : (
+                                                                              <span className="w-3 h-3 rounded-full bg-slate-200 shrink-0"></span>
+                                                                        )}
+                                                                        <span className={`text-xs ${isFailed ? 'text-rose-600 font-medium' : step.status === 'completed' ? 'text-slate-600 line-through opacity-70' : 'text-slate-700 font-medium'}`}>
+                                                                              {step.label}
+                                                                        </span>
+                                                                  </motion.div>
+                                                            );
+                                                      })}
+                                                </div>
+                                          </motion.div>
+                                    )}
+                              </AnimatePresence>
+
+
+                              {isProcessing && !steps.length && (
                                           <motion.div
                                                 initial={{ opacity: 0 }}
                                                 animate={{ opacity: 1 }}
@@ -202,8 +288,7 @@ export const SimpleChatView: React.FC<ChatViewProps> = ({
                                     )}
                                     <div ref={messagesEndRef} />
                               </div>
-                        </ScrollArea>
-                  </div>
+                  </ScrollArea>
 
                   {/* Input */}
                   <div className="p-3 bg-white sticky bottom-0 border-t border-slate-100 shrink-0">
