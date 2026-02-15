@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { AgentState } from "../types/AgentState";
 import { Step } from "../core/Step";
+import { VoiceListener, useVoiceInput } from "./VoiceListener";
 
 interface ChatViewProps {
       messages: { role: "user" | "assistant"; content: string }[];
@@ -18,6 +19,7 @@ interface ChatViewProps {
       onCancel?: () => void;
       state?: AgentState;
       steps?: Step[];
+      autoListenOnConfirm?: boolean;
 }
 
 export const SimpleChatView: React.FC<ChatViewProps> = ({
@@ -31,9 +33,30 @@ export const SimpleChatView: React.FC<ChatViewProps> = ({
       onCancel,
       state = AgentState.IDLE,
       steps = [],
+      autoListenOnConfirm = false,
 }) => {
       const [input, setInput] = React.useState("");
       const messagesEndRef = useRef<HTMLDivElement>(null);
+
+      // Voice input hook — always send (confirm/cancel handled by processIntent)
+      const voice = useVoiceInput((finalText) => {
+            if (finalText.trim()) {
+                  onSendMessage(finalText.trim());
+            }
+      });
+
+      // Auto-open mic when awaiting confirmation or clarification
+      useEffect(() => {
+            if (!autoListenOnConfirm) return;
+            const shouldAutoListen =
+                  state === AgentState.AWAITING_CONFIRMATION ||
+                  state === AgentState.CLARIFYING;
+            if (shouldAutoListen && !voice.isListening) {
+                  // Delay to let the UI render and isProcessing to settle
+                  const timer = setTimeout(() => voice.start(), 800);
+                  return () => clearTimeout(timer);
+            }
+      }, [state, autoListenOnConfirm]);
 
       const scrollToBottom = () => {
             messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -41,13 +64,31 @@ export const SimpleChatView: React.FC<ChatViewProps> = ({
 
       useEffect(() => {
             scrollToBottom();
-      }, [messages, isProcessing, proposedAction, steps, state]);
+      }, [messages, isProcessing, proposedAction, steps, state, voice.isListening]);
 
       const handleSubmit = (e: React.FormEvent) => {
             e.preventDefault();
-            if (input.trim() && !isProcessing) {
+            if (input.trim()) {
+                  // Stop voice if it's running — user chose to type instead
+                  if (voice.isListening) voice.stop();
                   onSendMessage(input.trim());
                   setInput("");
+            }
+      };
+
+      const handleMicClick = () => {
+            if (voice.isListening) {
+                  voice.stop();
+            } else {
+                  voice.start();
+            }
+      };
+
+      // If user starts typing while voice is active, stop voice
+      const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+            setInput(e.target.value);
+            if (voice.isListening && e.target.value.length > 0) {
+                  voice.stop();
             }
       };
 
@@ -123,6 +164,7 @@ export const SimpleChatView: React.FC<ChatViewProps> = ({
                                                       chat_bubble
                                                 </span>
                                                 <p className="text-sm font-medium text-slate-400">Start a conversation</p>
+                                          <p className="text-xs text-slate-300 mt-1">Type or tap the mic to speak</p>
                                           </div>
                                     ) : (
                                           messages.map((msg, idx) => (
@@ -211,6 +253,12 @@ export const SimpleChatView: React.FC<ChatViewProps> = ({
                                                             Confirm
                                                       </button>
                                                 </div>
+
+                                                {/* Voice confirm hint */}
+                                                <div className="flex items-center justify-center gap-1.5 pt-1 border-t border-blue-100">
+                                                      <span className="material-symbols-outlined text-[12px] text-blue-400">mic</span>
+                                                      <span className="text-[10px] text-blue-400 font-medium">Say "confirm" or "cancel" to use voice</span>
+                                                </div>
                                           </motion.div>
                                     )}
                               </AnimatePresence>
@@ -290,26 +338,62 @@ export const SimpleChatView: React.FC<ChatViewProps> = ({
                               </div>
                   </ScrollArea>
 
+                  {/* Voice Listener (compact, shown above input when active) */}
+                  <div className="px-3 pt-1">
+                        <VoiceListener
+                              isListening={voice.isListening}
+                              onStart={voice.start}
+                              onStop={voice.stop}
+                              interimText={voice.interimText}
+                              disabled={isProcessing}
+                        />
+                  </div>
+
                   {/* Input */}
                   <div className="p-3 bg-white sticky bottom-0 border-t border-slate-100 shrink-0">
-                        <form onSubmit={handleSubmit} className="relative">
-                              <input
-                                    type="text"
-                                    value={input}
-                                    onChange={(e) => setInput(e.target.value)}
-                                    disabled={isProcessing}
-                                    placeholder={proposedAction ? "Review action..." : "Type your message..."}
-                                    className="w-full bg-slate-50 text-slate-900 placeholder:text-slate-400 text-sm px-4 py-3 pr-12 rounded-lg border-0 focus:ring-2 focus:ring-blue-100 focus:bg-white transition-all outline-none"
-                              />
+                        <form onSubmit={handleSubmit} className="relative flex items-center gap-2">
+                              <div className="relative flex-1">
+                                    <input
+                                          type="text"
+                                          value={input}
+                                          onChange={handleInputChange}
+                                          disabled={isProcessing}
+                                          placeholder={
+                                                voice.isListening
+                                                      ? "Listening... or type here"
+                                                      : proposedAction
+                                                            ? 'Type "confirm" or "cancel"...'
+                                                            : "Type your message..."
+                                          }
+                                          className="w-full bg-slate-50 text-slate-900 placeholder:text-slate-400 text-sm px-4 py-3 pr-10 rounded-lg border-0 focus:ring-2 focus:ring-blue-100 focus:bg-white transition-all outline-none"
+                                    />
+                                    <button
+                                          type="submit"
+                                          disabled={!input.trim() || isProcessing}
+                                          className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md transition-all ${input.trim() && !isProcessing
+                                                ? "text-blue-600 hover:bg-blue-50"
+                                                : "text-slate-300 cursor-not-allowed"
+                                                }`}
+                                    >
+                                          <span className="material-symbols-outlined text-[18px]">send</span>
+                                    </button>
+                              </div>
+
+                              {/* Mic Button */}
                               <button
-                                    type="submit"
-                                    disabled={!input.trim() || isProcessing}
-                                    className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md transition-all ${input.trim() && !isProcessing
-                                          ? "text-blue-600 hover:bg-blue-50"
-                                          : "text-slate-300 cursor-not-allowed"
+                                    type="button"
+                                    onClick={handleMicClick}
+                                    disabled={isProcessing}
+                                    className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all ${voice.isListening
+                                          ? "bg-rose-500 text-white shadow-sm shadow-rose-200 hover:bg-rose-600"
+                                          : isProcessing
+                                                ? "bg-slate-100 text-slate-300 cursor-not-allowed"
+                                                : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
                                           }`}
                               >
-                                    <span className="material-symbols-outlined text-[20px]">send</span>
+                                    <span className="material-symbols-outlined text-[20px]">
+                                          {voice.isListening ? "mic_off" : "mic"}
+                                    </span>
                               </button>
                         </form>
                   </div>

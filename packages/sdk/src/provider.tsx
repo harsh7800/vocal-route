@@ -103,7 +103,101 @@ export function VocalRouteProvider({
             tts.speak(msg, () => setIsSpeaking(true), () => setIsSpeaking(false));
       }, []);
 
+      const executeAgentAction = useCallback(async (actionId: string) => {
+            if (actionId === 'confirm') {
+                  const action = agentInstance.getUIState().proposedAction;
+                  if (!action) return;
+
+                  // Clear proposed action and old steps
+                  agentInstance.setProposedAction(undefined);
+                  agentInstance.clearSteps();
+                  agentInstance.transition("START_EXECUTING");
+                  agentInstance.addStep(action.summary || `Executing ${action.capability}`, "pending");
+
+                  try {
+                        const isPath = action.capability.startsWith('/');
+
+                        if (isPath) {
+                              // Validate route exists in registry
+                              const matchedRoute = registry.find(r => {
+                                    // Exact match or pattern match (e.g. /customers/[customerId])
+                                    const routePattern = r.path.replace(/\[([^\]]+)\]/g, '[^/]+');
+                                    const regex = new RegExp(`^${routePattern}$`);
+                                    return regex.test(action.capability) || r.path === action.capability;
+                              });
+
+                              if (!matchedRoute) {
+                                    agentInstance.addMessage(
+                                          "assistant",
+                                          `The page "${action.capability}" is not available in my context. I can only navigate to registered pages.`
+                                    );
+                                    agentInstance.transition("FAIL");
+                                    return;
+                              }
+
+                              // Navigation — interpolate params into path
+                              let finalPath = action.capability;
+                              if (action.params) {
+                                    for (const [key, value] of Object.entries(action.params)) {
+                                          finalPath = finalPath.replace(`[${key}]`, String(value));
+                                    }
+                              }
+                              if (currentParams) {
+                                    for (const [key, value] of Object.entries(currentParams)) {
+                                          const val = Array.isArray(value) ? value.join('/') : String(value);
+                                          finalPath = finalPath.replace(`[${key}]`, val);
+                                    }
+                              }
+                              router.push(finalPath);
+                              agentInstance.addStep(`Navigated to ${finalPath}`, "completed");
+                        } else {
+                              // Validate capability is registered
+                              const capability = vocalRegistry.getCapability(action.capability);
+                              if (!capability || capability.id === 'navigation' || capability.id === '__system.listCapabilities') {
+                                    agentInstance.addMessage(
+                                          "assistant",
+                                          `I don't have a registered task called "${action.capability}". This action is not available in my context.`
+                                    );
+                                    agentInstance.transition("FAIL");
+                                    return;
+                              }
+
+                              // Execute the capability
+                              agentInstance.addStep(`Running ${capability.id}...`, "pending");
+                              await capability.execute(action.params || {});
+                              agentInstance.addStep(`Completed ${capability.id}`, "completed");
+                        }
+
+                        agentInstance.transition("COMPLETE");
+                  } catch (e: any) {
+                        console.error("[VocalRoute] Execution failed:", e);
+                        agentInstance.addMessage("assistant", `Execution failed: ${e.message}`);
+                        agentInstance.transition("FAIL");
+                  }
+            }
+      }, [agentInstance, registry, router, currentParams]);
+
       const processIntent = useCallback(async (text: string) => {
+            const lowerText = text.toLowerCase().trim();
+
+            // Voice/text shortcuts for confirming or cancelling a proposed action
+            if (agentInstance.getUIState().proposedAction) {
+                  const confirmPhrases = ["confirm", "yes", "yeah", "yep", "do it", "go ahead", "sure", "ok", "okay", "proceed"];
+                  const cancelPhrases = ["cancel", "no", "nope", "stop", "never mind", "nevermind", "don't"];
+
+                  if (confirmPhrases.some(p => lowerText === p || lowerText.startsWith(p))) {
+                        executeAgentAction("confirm");
+                        return;
+                  }
+                  if (cancelPhrases.some(p => lowerText === p || lowerText.startsWith(p))) {
+                        agentInstance.addMessage("user", text);
+                        agentInstance.setProposedAction(undefined);
+                        agentInstance.addMessage("assistant", "Action cancelled.");
+                        agentInstance.transition("RESET");
+                        return;
+                  }
+            }
+
             setIsProcessing(true);
             console.log("[VocalRoute] 🟢 Processing Input:", text);
             agentInstance.receiveInput(text);
@@ -227,7 +321,7 @@ export function VocalRouteProvider({
                   setIsProcessing(false);
                   agentInstance.transition('FAIL', { message: err.message });
             }
-      }, [registry, router, currentParams, aiConfig, agentInstance, engine, say]);
+      }, [registry, router, currentParams, aiConfig, agentInstance, engine, say, executeAgentAction]);
 
       const stopListening = useCallback(async () => {
             if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
@@ -257,80 +351,6 @@ export function VocalRouteProvider({
                         processIntent(text);
                   }, 1500);
             });
-      };
-
-      const executeAgentAction = async (actionId: string) => {
-            if (actionId === 'confirm') {
-                  const action = agentState.proposedAction;
-                  if (!action) return;
-
-                  // Clear proposed action and old steps
-                  agentInstance.setProposedAction(undefined);
-                  agentInstance.clearSteps();
-                  agentInstance.transition("START_EXECUTING");
-                  agentInstance.addStep(action.summary || `Executing ${action.capability}`, "pending");
-
-                  try {
-                        const isPath = action.capability.startsWith('/');
-
-                        if (isPath) {
-                              // Validate route exists in registry
-                              const matchedRoute = registry.find(r => {
-                                    // Exact match or pattern match (e.g. /customers/[customerId])
-                                    const routePattern = r.path.replace(/\[([^\]]+)\]/g, '[^/]+');
-                                    const regex = new RegExp(`^${routePattern}$`);
-                                    return regex.test(action.capability) || r.path === action.capability;
-                              });
-
-                              if (!matchedRoute) {
-                                    agentInstance.addMessage(
-                                          "assistant",
-                                          `The page "${action.capability}" is not available in my context. I can only navigate to registered pages.`
-                                    );
-                                    agentInstance.transition("FAIL");
-                                    return;
-                              }
-
-                              // Navigation — interpolate params into path
-                              let finalPath = action.capability;
-                              if (action.params) {
-                                    for (const [key, value] of Object.entries(action.params)) {
-                                          finalPath = finalPath.replace(`[${key}]`, String(value));
-                                    }
-                              }
-                              if (currentParams) {
-                                    for (const [key, value] of Object.entries(currentParams)) {
-                                          const val = Array.isArray(value) ? value.join('/') : String(value);
-                                          finalPath = finalPath.replace(`[${key}]`, val);
-                                    }
-                              }
-                              router.push(finalPath);
-                              agentInstance.addStep(`Navigated to ${finalPath}`, "completed");
-                        } else {
-                              // Validate capability is registered
-                              const capability = vocalRegistry.getCapability(action.capability);
-                              if (!capability || capability.id === 'navigation' || capability.id === '__system.listCapabilities') {
-                                    agentInstance.addMessage(
-                                          "assistant",
-                                          `I don't have a registered task called "${action.capability}". This action is not available in my context.`
-                                    );
-                                    agentInstance.transition("FAIL");
-                                    return;
-                              }
-
-                              // Execute the capability
-                              agentInstance.addStep(`Running ${capability.id}...`, "pending");
-                              await capability.execute(action.params || {});
-                              agentInstance.addStep(`Completed ${capability.id}`, "completed");
-                        }
-
-                        agentInstance.transition("COMPLETE");
-                  } catch (e: any) {
-                        console.error("[VocalRoute] Execution failed:", e);
-                        agentInstance.addMessage("assistant", `Execution failed: ${e.message}`);
-                        agentInstance.transition("FAIL");
-                  }
-            }
       };
 
       const resetAgent = () => {
@@ -404,6 +424,7 @@ export function VocalRouteProvider({
                                                 }}
                                                 state={agentState.state}
                                                 steps={agentState.steps}
+                                                autoListenOnConfirm={true}
                                           />
                               )}
                         </div>
