@@ -20,6 +20,7 @@ export interface VoiceOverlayProps {
   themeColor?: 'cyan' | 'blue' | 'purple';
   title?: string;
   type?: 'compact' | 'global';
+  show?: boolean;
 }
 
 export function VoiceOverlay({
@@ -35,10 +36,12 @@ export function VoiceOverlay({
   agentReply,
   isSpeaking = false,
   type = 'compact',
-  themeColor = 'cyan'
+  themeColor = 'cyan',
+  show: externalShow
 }: VoiceOverlayProps) {
   const isGlobal = type === 'global';
-  const show = isListening || isProcessing || !!error;
+  const internalShow = isListening || isProcessing || !!error;
+  const show = externalShow !== undefined ? externalShow : internalShow;
 
   // Use AnimatePresence for mount/unmount animations.
   // We wrap the whole component in AnimatePresence at the usage site or handle "show" internally.

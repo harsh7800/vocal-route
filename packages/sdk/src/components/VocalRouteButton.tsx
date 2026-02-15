@@ -29,7 +29,7 @@ export function VocalRouteButton({
   };
 
   const handleVoice = () => {
-    startListening();
+    startListening({ mode: 'global' });
     setIsOpen(false);
   };
 

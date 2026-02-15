@@ -13,6 +13,7 @@ import type { VocalIntent, RouteRegistry, VocalAIConfig } from './types';
 import { Agent, AgentUIState } from './agent/core/Agent';
 // import { AgentView } from './agent/ui/AgentView';
 import { SimpleChatView } from './agent/ui/SimpleChatView';
+import { VoiceOverlay } from './components/VoiceOverlay';
 import { AgentState } from './agent/types/AgentState';
 import { ExecutionEngine } from './agent/runtime/ExecutionEngine';
 import { vocalRegistry } from './agent/runtime/Registry';
@@ -35,7 +36,7 @@ export type ContextType = {
       setIsAgentMinimized: (minimized: boolean) => void;
       isAgentOpen: boolean;
       setIsAgentOpen: (open: boolean) => void;
-      startListening: () => Promise<void>;
+      startListening: (options?: { mode?: 'agent' | 'global' }) => Promise<void>;
       stopListening: () => Promise<void>;
       executeAgentAction: (actionId: string) => void;
       triggerCommand: (text: string) => Promise<void>;
@@ -89,12 +90,7 @@ export function VocalRouteProvider({
       const [agentState, setAgentState] = useState<AgentUIState>(agentInstance.getUIState());
       const [isAgentMinimized, setIsAgentMinimized] = useState(false);
       const [isAgentOpen, setIsAgentOpen] = useState(false);
-
-      useEffect(() => {
-            return agentInstance.onStateChange((state) => {
-                  setAgentState(state);
-            });
-      }, [agentInstance]);
+      const [isGlobalVoice, setIsGlobalVoice] = useState(false);
 
       const say = useCallback((msg: string) => {
             setAgentReply(msg);
@@ -102,6 +98,33 @@ export function VocalRouteProvider({
             setIsSpeaking(true);
             tts.speak(msg, () => setIsSpeaking(true), () => setIsSpeaking(false));
       }, []);
+
+      const lastSpokenIndexRef = useRef<number>(-1);
+
+      useEffect(() => {
+            return agentInstance.onStateChange((state) => {
+                  setAgentState(state);
+
+                  // Auto-exit global voice if we need UI interaction (confirm/clarify)
+                  if (state.state === AgentState.AWAITING_CONFIRMATION || state.state === AgentState.CLARIFYING) {
+                        if (isGlobalVoice) {
+                              setIsGlobalVoice(false);
+                              setIsAgentOpen(true);
+                        }
+                  }
+
+                  // Auto-speak new assistant messages
+                  const lastIndex = state.messages.findLastIndex(m => m.role === 'assistant');
+                  if (lastIndex > lastSpokenIndexRef.current) {
+                        const msg = state.messages[lastIndex].content;
+                        // Avoid speaking empty or repeated status messages if any
+                        if (msg && msg.trim()) {
+                              say(msg);
+                        }
+                        lastSpokenIndexRef.current = lastIndex;
+                  }
+            });
+      }, [agentInstance, say]);
 
       const executeAgentAction = useCallback(async (actionId: string) => {
             if (actionId === 'confirm') {
@@ -260,14 +283,12 @@ export function VocalRouteProvider({
 
                   // Handle Chat / Conversation
                   if (intent.intent === 'chat' && intent.reply) {
-                        say(intent.reply);
+                        agentInstance.addMessage("assistant", intent.reply);
                         agentInstance.transition('COMPLETE');
                         agentInstance.addStep(intent.reply, "completed");
 
                         // Keep the agent open for a moment so they can read the reply
                         setTimeout(() => {
-                              // potentially auto-close or just stay in complete state
-                              // for now, let's keep it complete until user closes or says something else
                         }, 3000);
 
                         setIsProcessing(false);
@@ -291,7 +312,9 @@ export function VocalRouteProvider({
                                     }
                               }
 
-                              if (intent.reply) say(intent.reply);
+                              if (intent.reply) {
+                                    agentInstance.addMessage("assistant", intent.reply);
+                              }
                               router.push(finalPath);
                               agentInstance.transition('COMPLETE');
                               agentInstance.addStep(`Navigated to ${targetRoute.label}`, "completed");
@@ -304,14 +327,12 @@ export function VocalRouteProvider({
                   // We must reset the agent state from PROCESSING to avoid getting stuck
                   if (intent.intent === 'unknown') {
                         console.warn("[VocalRoute] Unknown intent. Ignoring non-task input.");
-                        if (intent.reply) say(intent.reply);
+                        if (intent.reply) {
+                              agentInstance.addMessage("assistant", intent.reply);
+                        }
 
-                        // For a "Task Engine", we don't error out on chitchat, we just go back to standing by.
-                        // We reset to IDLE but keep the transcript visible for a moment if needed, 
-                        // or just reset completely to show "Standing By".
                         agentInstance.transition('RESET');
                   } else {
-                        // Handled but no state transition happened?
                         agentInstance.transition('RESET');
                   }
 
@@ -330,10 +351,19 @@ export function VocalRouteProvider({
             visualizerRef.current?.stop();
       }, []);
 
-      const startListening = async () => {
+      const startListening = async (options?: { mode?: 'agent' | 'global' }) => {
+            const mode = options?.mode || 'agent';
             setIsListening(true);
-            setIsAgentOpen(true);
-            setIsAgentMinimized(false);
+
+            if (mode === 'global') {
+                  setIsGlobalVoice(true);
+                  setIsAgentOpen(false);
+            } else {
+                  setIsGlobalVoice(false);
+                  setIsAgentOpen(true);
+                  setIsAgentMinimized(false);
+            }
+
             setTranscript('');
             setError(null);
 
@@ -387,7 +417,23 @@ export function VocalRouteProvider({
                   <NextTopLoader showSpinner={false} color="#22d3ee" />
                   {children}
 
-                  {(agentState.state !== AgentState.IDLE || isAgentOpen || agentState.messages.length > 0) && (
+                  <VoiceOverlay
+                        isListening={isListening}
+                        isProcessing={isProcessing}
+                        transcript={transcript}
+                        agentReply={agentReply}
+                        volume={volume}
+                        frequencies={frequencies}
+                        error={error}
+                        type="global"
+                        onClose={() => {
+                              stopListening();
+                              setIsGlobalVoice(false);
+                        }}
+                        show={isGlobalVoice && (isListening || isProcessing || isSpeaking || !!error)}
+                  />
+
+                  {(agentState.state !== AgentState.IDLE || isAgentOpen || agentState.messages.length > 0) && !isGlobalVoice && (
                         <div style={{
                               position: 'fixed',
                               bottom: '2rem',
