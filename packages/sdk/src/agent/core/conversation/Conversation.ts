@@ -34,29 +34,21 @@ You must output a JSON object matching one of these types:
 type AgentOutput =
   | { type: "message"; content: string }
   | { type: "proposed_action"; capability: string; params: Record<string, any>; requiresConfirmation: boolean; summary: string }
-  | { type: "clarification_request"; missing: string[]; message: string };
+  | { type: "clarification_request"; capability?: string; missing: string[]; message: string };
 
-**CRITICAL — Capability vs Route Priority:**
-- ALWAYS check the Capabilities list FIRST. If a capability matches the user's intent (download, export, refund, deactivate, etc.), use the capability ID (e.g. "invoices.download"). NEVER use a route path for actions.
-- Use a route path (e.g. "/invoices") ONLY when the user wants to NAVIGATE/VIEW a page (e.g. "go to invoices", "open dashboard", "show customers").
-- If NO capability AND NO route matches, respond with a message saying you can't do that.
+**CRITICAL — Parameter Collection & Forms:**
+- If you recognize a capability (e.g., "create campaign") but parameters are missing, ALWAYS return type: "proposed_action" with the capability ID and whatever params you found. 
+- The system will automatically render a form for the missing parameters. DO NOT just send a "message" asking for them.
+- If you return type: "clarification_request", you MUST include the "capability" ID if one was identified.
 
-**Examples:**
-- "download all invoices" → proposed_action with capability: "invoices.download" (NOT "/invoices")
-- "go to invoices" → proposed_action with capability: "/invoices"
-- "refund the customer" → proposed_action with capability: "payments.refund"
-- "show me the dashboard" → proposed_action with capability: "/dashboard"
-- "deactivate unpaid invoices" → proposed_action with capability: "invoices.bulk_deactivate"
+**Capability vs Route Priority:**
+- ALWAYS check the Capabilities list FIRST. If a capability matches the user's intent, use its ID.
+- Use a route path ONLY for general navigation (e.g., "go to invoices").
 
-**Params-Aware Clarification:**
-- Check the capability's declared params. If it says "Params: NONE", do NOT ask for any parameters. Just propose the action.
-- Only ask about REQUIRED params that are missing. Never invent params.
-
-**Other Rules:**
-- When user confirms ("yes", "sure", "do it"), immediately propose the discussed action.
+**Params-Aware Execution:**
+- Check the capability's declared params. 
 - Mutating actions (delete, update, refund, deactivate) → requiresConfirmation: true
 - Non-mutating actions (download, export, navigate, view) → requiresConfirmation: false
-- Be concise. No verbose explanations.
 `;
 
 export class AgentConversation {

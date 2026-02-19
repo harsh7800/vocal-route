@@ -22,44 +22,48 @@ export class ExecutionGate {
 
       case "clarification_request":
         this.agent.addMessage("assistant", output.message);
+        if (output.capability) {
+          // Proactively set up the engine state if a capability was identified
+          this.engine.processIntent({
+            capability: output.capability,
+            params: {}
+          });
+        }
         this.agent.transition("START_CLARIFYING");
         break;
 
       case "proposed_action":
         const isNavigation = output.capability.startsWith("/");
 
-        if (output.requiresConfirmation || isNavigation) {
-          // Add message describing what we're about to do
-          if (output.summary) {
-            this.agent.addMessage("assistant", output.summary);
-          }
+        // Always check params first via engine - this will set up activeForm if needed
+        await this.engine.processIntent({
+          capability: output.capability,
+          params: output.params,
+        });
 
-          this.agent.setProposedAction(output);
-          this.agent.clearSteps();
-          this.agent.transition("REQUIRE_CONFIRMATION");
-        } else {
-          // Auto-execute
-          if (output.summary) {
-            this.agent.addMessage("assistant", output.summary);
+        if (output.requiresConfirmation || isNavigation) {
+          // If the engine transitioned to CLARIFYING (missing params), 
+          // we don't need to show the confirmation card yet.
+          const state = this.agent.getUIState().state;
+          if (state !== AgentState.CLARIFYING) {
+            if (output.summary) {
+              this.agent.addMessage("assistant", output.summary);
+            }
+            this.agent.setProposedAction(output);
+            this.agent.clearSteps();
+            this.agent.transition("REQUIRE_CONFIRMATION");
           }
-          this.agent.clearSteps();
-          await this.execute(output.capability, output.params, output.summary);
         }
         break;
     }
   }
 
   async execute(capabilityId: string, params: any, summary?: string) {
-    this.agent.transition("START_EXECUTING");
-    if(summary) this.agent.addStep(summary, "pending");
-    
     try {
       await this.engine.processIntent({
         capability: capabilityId,
         params: params,
       });
-      if (summary) this.agent.addStep(summary, "completed");
-      this.agent.transition("COMPLETE");
     } catch (e: any) {
       this.agent.addMessage(
         "assistant",

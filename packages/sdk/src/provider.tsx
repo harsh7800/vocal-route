@@ -37,7 +37,7 @@ export type ContextType = {
       isAgentOpen: boolean;
       setIsAgentOpen: (open: boolean) => void;
       startListening: (options?: { mode?: 'agent' | 'global' }) => Promise<void>;
-      stopListening: () => Promise<void>;
+      stopListening: () => Promise<string | null | undefined>;
       executeAgentAction: (actionId: string) => void;
       triggerCommand: (text: string) => Promise<void>;
       resetAgent: () => void;
@@ -92,12 +92,32 @@ export function VocalRouteProvider({
       const [isAgentOpen, setIsAgentOpen] = useState(false);
       const [isGlobalVoice, setIsGlobalVoice] = useState(false);
 
+      const [isPreparingSpeech, setIsPreparingSpeech] = useState(false);
+
       const say = useCallback((msg: string) => {
             setAgentReply(msg);
             const tts = BrowserTTS.getInstance();
-            setIsSpeaking(true);
-            tts.speak(msg, () => setIsSpeaking(true), () => setIsSpeaking(false));
-      }, []);
+            if (aiConfig?.enabled && aiConfig?.openaiApiKey) {
+                  tts.configure(
+                        aiConfig.openaiApiKey,
+                        aiConfig.baseURL,
+                        aiConfig.voiceModel,
+                        aiConfig.speechModel
+                  );
+            }
+            setIsPreparingSpeech(true);
+            tts.speak(
+                  msg,
+                  () => {
+                        setIsPreparingSpeech(false);
+                        setIsSpeaking(true);
+                  },
+                  () => {
+                        setIsSpeaking(false);
+                        setIsPreparingSpeech(false);
+                  }
+            );
+      }, [aiConfig]);
 
       const lastSpokenIndexRef = useRef<number>(-1);
 
@@ -218,6 +238,27 @@ export function VocalRouteProvider({
                         agentInstance.addMessage("assistant", "Action cancelled.");
                         agentInstance.transition("RESET");
                         return;
+                  }
+            }
+
+            if (text.startsWith("Update details:")) {
+                  try {
+                        const jsonStr = text.replace("Update details:", "").trim();
+                        const vals = JSON.parse(jsonStr);
+                        const activeForm = agentInstance.getUIState().activeForm;
+                        if (activeForm) {
+                              setIsProcessing(true);
+                              agentInstance.receiveInput(text);
+                              agentInstance.addMessage("user", "Updated the required details.");
+                              await engine.processIntent({
+                                    capability: activeForm.capabilityId,
+                                    params: vals
+                              });
+                              setIsProcessing(false);
+                              return;
+                        }
+                  } catch (e) {
+                        console.error("[VocalRoute] Failed to parse form update", e);
                   }
             }
 
@@ -347,8 +388,14 @@ export function VocalRouteProvider({
       const stopListening = useCallback(async () => {
             if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
             setIsListening(false);
-            transcriberRef.current?.stop();
+
+            const finalTranscript = await transcriberRef.current?.stop();
+
             visualizerRef.current?.stop();
+            setVolume(0);
+            setFrequencies([]);
+
+            return finalTranscript;
       }, []);
 
       const startListening = async (options?: { mode?: 'agent' | 'global' }) => {
@@ -367,19 +414,39 @@ export function VocalRouteProvider({
             setTranscript('');
             setError(null);
 
-            if (!transcriberRef.current) transcriberRef.current = new SpeechTranscriber();
+            if (!transcriberRef.current) {
+                  transcriberRef.current = new SpeechTranscriber(
+                        aiConfig?.openaiApiKey,
+                        aiConfig?.baseURL
+                  );
+            }
             if (!visualizerRef.current) visualizerRef.current = new VolumeVisualizer();
 
             visualizerRef.current.start((v) => setVolume(prev => prev * 0.8 + v * 0.2), (f) => setFrequencies(f));
 
-            transcriberRef.current.start((text: string) => {
+            // Initial safety timeout: if no speech is detected for 8s, auto-stop
+            silenceTimeoutRef.current = setTimeout(async () => {
+                  if (transcript === '') stopListening();
+            }, 8000);
+
+            transcriberRef.current.start(async (text: string) => {
                   setTranscript(text);
                   agentInstance.setTranscript(text);
+
                   if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
-                  silenceTimeoutRef.current = setTimeout(() => {
-                        stopListening();
-                        processIntent(text);
-                  }, 1500);
+
+                  silenceTimeoutRef.current = setTimeout(async () => {
+                        setIsProcessing(true);
+                        const finalResult = await stopListening();
+
+                        const transcriptionToUse = finalResult || text;
+                        if (transcriptionToUse) {
+                              setTranscript(transcriptionToUse);
+                              processIntent(transcriptionToUse);
+                        } else {
+                              setIsProcessing(false);
+                        }
+                  }, 1800);
             });
       };
 
@@ -425,21 +492,31 @@ export function VocalRouteProvider({
                         volume={volume}
                         frequencies={frequencies}
                         error={error}
+                        isSpeaking={isSpeaking}
+                        isPreparingSpeech={isPreparingSpeech}
                         type="global"
                         onClose={() => {
+                              BrowserTTS.getInstance().stop();
                               stopListening();
                               setIsGlobalVoice(false);
                         }}
-                        show={isGlobalVoice && (isListening || isProcessing || isSpeaking || !!error)}
+                        onStopSpeaking={() => {
+                              BrowserTTS.getInstance().stop();
+                              setIsSpeaking(false);
+                              setIsPreparingSpeech(false);
+                        }}
+                        onSpeakAgain={() => {
+                              startListening({ mode: 'global' });
+                        }}
+                        show={isGlobalVoice}
                   />
 
                   {(agentState.state !== AgentState.IDLE || isAgentOpen || agentState.messages.length > 0) && !isGlobalVoice && (
                         <div style={{
                               position: 'fixed',
-                              bottom: '2rem',
-                              right: isAgentMinimized ? '1.5rem' : '6rem',
-                              top: isAgentMinimized ? 'auto' : 'auto',
-                              width: isAgentMinimized ? 'auto' : '350px',
+                              bottom: isAgentMinimized ? '2rem' : '6.5rem',
+                              right: '2rem',
+                              width: isAgentMinimized ? 'auto' : '380px',
                               zIndex: 9000,
                               backgroundColor: isAgentMinimized ? 'transparent' : '#ffffff',
                               borderRadius: isAgentMinimized ? '9999px' : '0.75rem',
@@ -470,7 +547,18 @@ export function VocalRouteProvider({
                                                 }}
                                                 state={agentState.state}
                                                 steps={agentState.steps}
+                                                availableActions={agentState.availableActions}
+                                                isSpeaking={isSpeaking}
+                                                onStopSpeaking={() => {
+                                                      BrowserTTS.getInstance().stop();
+                                                      setIsSpeaking(false);
+                                                      setIsPreparingSpeech(false);
+                                                }}
                                                 autoListenOnConfirm={true}
+                                                activeForm={agentState.activeForm}
+                                                onUpdateFormField={(name, value) => {
+                                                      agentInstance.updateFormField(name, value);
+                                                }}
                                           />
                               )}
                         </div>

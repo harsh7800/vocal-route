@@ -26,6 +26,9 @@ export type VocalAIConfig = {
   baseURL?: string;
   intentModel?: string;
   transcriptModel?: string;
+  voiceModel?: string; // e.g. "alloy", "echo", "fable", "onyx", "nova", "shimmer"
+  speechModel?: string; // e.g. "tts-1", "tts-1-hd"
+  whisperEnabled?: boolean;
   fallbackToLocal?: boolean;
   strictMode?: boolean;
 };

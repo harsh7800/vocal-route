@@ -71,6 +71,22 @@ class Registry {
     return this.entities.get(type);
   }
 
+  public async resolveEntity(type: EntityType, input: string) {
+    const config = this.getEntityConfig(type);
+    if (!config) {
+      console.warn(`[VocalRoute] Entity type "${type}" not registered.`);
+      return { matches: [], error: `Entity type "${type}" not registered.` };
+    }
+
+    const all = await config.getAll();
+    const matches = await config.search(input, all);
+
+    return {
+      matches,
+      config,
+    };
+  }
+
   public clear() {
     this.capabilities.clear();
     this.entities.clear();

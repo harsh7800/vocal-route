@@ -1,8 +1,9 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VoiceOrb } from './VoiceOrb';
-import { X as CloseIcon, RefreshCcw as RetryIcon } from 'lucide-react';
+import { X as CloseIcon, RefreshCcw as RetryIcon, Square, Mic } from 'lucide-react';
 
 export interface VoiceOverlayProps {
   isListening: boolean;
@@ -16,39 +17,67 @@ export interface VoiceOverlayProps {
   agentReply?: string | null;
   onClose?: () => void;
   onRetry?: () => void;
-  // Customization options
+  onStopSpeaking?: () => void;
+  onSpeakAgain?: () => void;
   themeColor?: 'cyan' | 'blue' | 'purple';
   title?: string;
   type?: 'compact' | 'global';
   show?: boolean;
+  isPreparingSpeech?: boolean;
 }
+
+const SARCASTIC_REASONS = [
+  "Digitally gargling mouthwash...",
+  "Consulting the AI elders...",
+  "Polishing every syllable...",
+  "Downloading more personality...",
+  "Warming up virtual vocal cords...",
+  "Negotiating with the API gods...",
+  "Checking for typos in my thoughts...",
+  "Synthesizing the perfect tone...",
+  "Hydrating the LLM...",
+  "Overthinking your request...",
+  "Bribing the GPU...",
+  "Contemplating the meaning of code...",
+  "Translating from binary to sass...",
+  "Rearranging my neural pathways...",
+  "Consulting a Magic 8 ball...",
+  "Wait, I think I forgot how to talk...",
+  "Brewing digital coffee..."
+];
 
 export function VoiceOverlay({
   isListening,
-  isProcessing,
+  isProcessing = false,
   transcript,
   error,
   onClose,
   onRetry,
+  onStopSpeaking,
+  onSpeakAgain,
   title,
   volume = 0,
   frequencies = [],
   agentReply,
   isSpeaking = false,
+  isPreparingSpeech = false,
   type = 'compact',
   themeColor = 'cyan',
   show: externalShow
 }: VoiceOverlayProps) {
   const isGlobal = type === 'global';
-  const internalShow = isListening || isProcessing || !!error;
+  const internalShow = isListening || isProcessing || isSpeaking || isPreparingSpeech || !!error;
   const show = externalShow !== undefined ? externalShow : internalShow;
 
-  // Use AnimatePresence for mount/unmount animations.
-  // We wrap the whole component in AnimatePresence at the usage site or handle "show" internally.
-  // Since the parent conditionally renders this component based on isListening/isProcessing, 
-  // we might miss exit animations unless the parent keeps it mounted. 
-  // Ideally, the parent should keep it mounted and pass `open` state.
-  // However, given the current structure:
+  const [sarcasticReason, setSarcasticReason] = useState(SARCASTIC_REASONS[0]);
+
+  useEffect(() => {
+    if (isPreparingSpeech || isProcessing) {
+      const idx = Math.floor(Math.random() * SARCASTIC_REASONS.length);
+      setSarcasticReason(SARCASTIC_REASONS[idx]);
+    }
+  }, [isPreparingSpeech, isProcessing]);
+
   if (!show) return null;
 
   if (isGlobal) {
@@ -112,10 +141,10 @@ export function VoiceOverlay({
                 fontWeight: 500,
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase',
-                color: isSpeaking ? '#22d3ee' : 'rgba(255,255,255,0.6)'
+                color: (isSpeaking || isPreparingSpeech) ? '#22d3ee' : 'rgba(255,255,255,0.6)'
               }}
             >
-              {error ? "Error" : isSpeaking ? "Speaking..." : isProcessing ? "Processing..." : title || "Listening..."}
+              {error ? "Error" : isPreparingSpeech ? "Preparing Speech..." : isSpeaking ? "Speaking..." : isProcessing ? "Processing..." : title || "Listening..."}
             </motion.p>
 
             {/* Orb */}
@@ -127,7 +156,7 @@ export function VoiceOverlay({
               <VoiceOrb
                 volume={volume}
                 frequencies={frequencies}
-                isListening={!isProcessing && !error}
+                isListening={!isProcessing && !error && !isSpeaking && !isPreparingSpeech}
                 themeColor={themeColor as any}
               />
             </motion.div>
@@ -147,8 +176,16 @@ export function VoiceOverlay({
             >
               {error ? (
                 <p style={{ fontSize: '1.125rem', color: '#f87171' }}>{error}</p>
-              ) : agentReply ? (
-                <p style={{ fontSize: '1.5rem', fontWeight: 500, color: '#22d3ee' }}>"{agentReply}"</p>
+              ) : (isPreparingSpeech || isProcessing) ? (
+                <motion.p
+                  animate={{ opacity: [0.4, 1, 0.4] }}
+                  transition={{ repeat: Infinity, duration: 1.5 }}
+                  style={{ fontSize: '1.5rem', fontWeight: 500, color: '#22d3ee', fontStyle: 'italic' }}
+                >
+                  "{sarcasticReason}"
+                </motion.p>
+              ) : isSpeaking ? (
+                <p style={{ fontSize: '1.2rem', fontWeight: 400, color: 'rgba(255,255,255,0.6)' }}>AI is responding...</p>
               ) : transcript ? (
                     <p style={{ fontSize: '1.5rem', fontWeight: 500, color: '#ffffff' }}>"{transcript}"</p>
               ) : (
@@ -183,6 +220,61 @@ export function VoiceOverlay({
             </motion.div>
 
 
+
+            {/* Controls */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="mt-8 flex items-center gap-6"
+              style={{ marginTop: '2.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }}
+            >
+              {(isSpeaking || isPreparingSpeech) ? (
+                <motion.button
+                  onClick={onStopSpeaking}
+                  whileHover={{ scale: 1.1, backgroundColor: 'rgba(239, 68, 68, 0.2)' }}
+                  whileTap={{ scale: 0.95 }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.6rem 1.2rem',
+                    borderRadius: '9999px',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                    color: '#ef4444',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: 600
+                  }}
+                >
+                  <Square size={14} fill="currentColor" />
+                  Stop AI
+                </motion.button>
+              ) : !isListening && !isProcessing && (
+                <motion.button
+                  onClick={onSpeakAgain}
+                  whileHover={{ scale: 1.1, backgroundColor: 'rgba(34, 211, 238, 0.2)' }}
+                  whileTap={{ scale: 0.95 }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.6rem 1.2rem',
+                    borderRadius: '9999px',
+                    backgroundColor: 'rgba(34, 211, 238, 0.1)',
+                    border: '1px solid rgba(34, 211, 238, 0.2)',
+                    color: '#22d3ee',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: 600
+                  }}
+                >
+                  <Mic size={14} />
+                  Speak Again
+                </motion.button>
+              )}
+            </motion.div>
 
             {/* Global Retry Button */}
             {error && onRetry && (
@@ -334,8 +426,10 @@ export function VoiceOverlay({
         <div style={{ backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: '0.5rem', padding: '0.75rem' }} className="vocal-transcript-bg">
           {error ? (
             <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500, color: '#ef4444' }}>{error}</p>
-          ) : agentReply ? (
-            <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500, color: '#06b6d4' }}>{agentReply}</p>
+          ) : (isPreparingSpeech || isProcessing) ? (
+            <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500, color: '#06b6d4', fontStyle: 'italic' }}>{sarcasticReason}</p>
+          ) : isSpeaking ? (
+            <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500, color: '#06b6d4' }}>AI is responding...</p>
           ) : transcript ? (
               <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500, color: '#1a1a1a' }} className="vocal-text-dark-white">"{transcript}"</p>
           ) : (

@@ -30,18 +30,22 @@ export async function resolveIntent(
   });
 
   const systemPrompt = `
-You are a high-precision voice-controlled navigation engine.
-Your goal is to map a user's spoken transcript to the correct route from the provided registry.
+You are a friendly and efficient voice assistant for a web application.
+Your goal is to map a user's spoken transcript to the correct route or action.
 
 Rules:
 1. Respond with ONLY valid JSON.
-7. Minimum confidence for navigation is 0.75. If you are unsure about navigation, check if it's a general question or conversation.
-8. If the input is conversational (e.g., "hello", "how are you", "what can you do?"), respond with:
+2. Minimum confidence for navigation is 0.75. 
+3. If the user asks "what can you do?" or "how can you help?", respond with a warm, non-technical summary of the application's core features (e.g. "I can help you manage invoices, view customer reports, or update your profile settings") rather than listing technical paths or keywords.
+4. For conversational inputs (hello, how are you), be concise and helpful.
    - "intent": "chat"
-   - "reply": A concise, friendly, and helpful AI response.
+   - "reply": A human-friendly, helpful response.
    - "target": null
    - "confidence": 0.9
-9. If the input is completely unintelligible or unrelated, return "unknown".
+5. If the input is an action (a verb like 'delete', 'update', 'refund', 'download') that matches a capability, use "intent": "action".
+6. Specify the capability ID as the "target".
+7. If an action requires an ID (like invoiceId) but the user only gave a name or description, put the name in the "params" as "query".
+8. If the input is completely unintelligible, return "unknown".
 `;
 
   const routeContext = registry
@@ -53,6 +57,9 @@ Rules:
         r.params
           ? `Dynamic Params: ${Array.isArray(r.params) ? r.params.join(", ") : Object.keys(r.params).join(", ")}`
           : null,
+        r.capabilities?.length
+          ? `Capabilities: ${r.capabilities.map((c: any) => c.id).join(", ")}`
+          : null,
       ]
         .filter(Boolean)
         .join(" | ");
@@ -61,7 +68,7 @@ Rules:
     .join("\n");
 
   const userPrompt = `
-Route Registry:
+Route & Capability Registry:
 ${routeContext}
 
 User Spoken Transcript:
@@ -69,9 +76,9 @@ User Spoken Transcript:
 
 Respond in this exact JSON format:
 {
-  "intent": "navigate",
-  "target": "/matched/route/id",
-  "params": { "param_name": "value" },
+  "intent": "navigate" | "action" | "chat",
+  "target": "/matched/route" | "capability.id",
+  "params": { "param_name": "value", "query": "search term if ID missing" },
   "confidence": 0.95
 }
 `;
