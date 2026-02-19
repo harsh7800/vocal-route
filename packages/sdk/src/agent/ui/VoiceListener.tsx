@@ -90,19 +90,26 @@ export function useVoiceInput(onFinalTranscript: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const [interimText, setInterimText] = useState("");
   const recognitionRef = useRef<any>(null);
+
+  // State to track text across engine restarts
   const pendingTextRef = useRef<string>("");
-  const submittedRef = useRef<boolean>(false);
+  const accumulatedTextRef = useRef<string>("");
+  const isIntentionalStopRef = useRef<boolean>(false);
+  const silenceTimerRef = useRef<any>(null);
+
   // Use a ref for the callback to avoid stale closures
   const callbackRef = useRef(onFinalTranscript);
   callbackRef.current = onFinalTranscript;
 
   const stop = useCallback(() => {
+    console.log("[VoiceInput] Stopping...");
+    isIntentionalStopRef.current = true;
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+
     if (recognitionRef.current) {
       recognitionRef.current.stop();
-      recognitionRef.current = null;
+      // We don't nullify recognitionRef here immediately, onend will handle cleanup
     }
-    setIsListening(false);
-    setInterimText("");
   }, []);
 
   const start = useCallback(() => {
@@ -113,91 +120,120 @@ export function useVoiceInput(onFinalTranscript: (text: string) => void) {
       (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      console.warn("[VoiceInput] Speech recognition not supported in this browser.");
+      console.warn("[VoiceInput] Speech recognition not supported.");
       return;
     }
 
-    // Stop any existing session
+    // Stop existing
     if (recognitionRef.current) {
+      isIntentionalStopRef.current = true;
       recognitionRef.current.stop();
     }
 
+    // Reset state for new session
+    isIntentionalStopRef.current = false;
     pendingTextRef.current = "";
-    submittedRef.current = false;
+    accumulatedTextRef.current = "";
+    setInterimText("");
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = "en-US";
     recognitionRef.current = recognition;
 
+    const resetSilenceTimer = () => {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = setTimeout(() => {
+        console.log("[VoiceInput] Auto-stopping due to silence...");
+        stop();
+      }, 3000); // 3 seconds silence timeout
+    };
+
     recognition.onstart = () => {
+      console.log("[VoiceInput] Started");
       setIsListening(true);
-      setInterimText("");
-      submittedRef.current = false;
+      resetSilenceTimer();
     };
 
     recognition.onresult = (event: any) => {
-      let finalTranscript = "";
-      let interimTranscript = "";
+      resetSilenceTimer();
 
+      // Reconstruct full transcript from current session results
+      let sessionTranscript = "";
       for (let i = 0; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
-        } else {
-          interimTranscript += event.results[i][0].transcript;
-        }
+        sessionTranscript += event.results[i][0].transcript;
       }
 
-      // Track the latest text for submission on end
-      const currentText = finalTranscript || interimTranscript;
-      if (currentText) {
-        pendingTextRef.current = currentText;
-        setInterimText(currentText);
-      }
+      pendingTextRef.current = sessionTranscript;
 
-      if (finalTranscript && !submittedRef.current) {
-        submittedRef.current = true;
-        // Small delay to show the final text before submitting
-        setTimeout(() => {
-          callbackRef.current(finalTranscript.trim());
-          setIsListening(false);
-          setInterimText("");
-          recognitionRef.current = null;
-        }, 200);
-      }
+      // Update UI with total text (previous sessions + current session)
+      const totalText = (accumulatedTextRef.current + " " + sessionTranscript).trim();
+      setInterimText(totalText);
     };
 
     recognition.onerror = (event: any) => {
-      console.error("[VoiceInput] Recognition error:", event.error);
-      // Don't stop on 'no-speech' — just let it end naturally
-      if (event.error !== 'no-speech') {
+      console.error("[VoiceInput] Error:", event.error);
+      if (event.error === 'no-speech') {
+        // Ignore no-speech errors, just letting it run or restart if needed
+        return;
+      }
+      // For other errors, we might want to stop or let the keep-alive handle it
+      // stopping explicitly prevents infinite error loops
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        isIntentionalStopRef.current = true;
         stop();
       }
     };
 
     recognition.onend = () => {
-      // If recognition ended but we haven't submitted, submit the pending text
-      if (!submittedRef.current && pendingTextRef.current.trim()) {
-        submittedRef.current = true;
-        const text = pendingTextRef.current.trim();
-        callbackRef.current(text);
+      console.log("[VoiceInput] Ended. Intentional:", isIntentionalStopRef.current);
+
+      if (isIntentionalStopRef.current) {
+        // Finalize
+        const finalText = (accumulatedTextRef.current + " " + pendingTextRef.current).trim();
+        if (finalText) {
+          callbackRef.current(finalText);
+        }
+
+        setIsListening(false);
+        setInterimText("");
+        pendingTextRef.current = "";
+        accumulatedTextRef.current = "";
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        recognitionRef.current = null;
+      } else {
+        // Premature stop (browser limit, network, etc.) -> RESTART
+        // Commit current session text to accumulated
+        accumulatedTextRef.current = (accumulatedTextRef.current + " " + pendingTextRef.current).trim();
+        pendingTextRef.current = "";
+
+        console.log("[VoiceInput] Restarting session...");
+        try {
+          recognition.start();
+        } catch (e) {
+          console.error("Failed to restart recognition", e);
+          // Fallback if immediate restart fails
+          setIsListening(false);
+        }
       }
-      pendingTextRef.current = "";
-      setIsListening(false);
-      setInterimText("");
-      recognitionRef.current = null;
     };
 
-    recognition.start();
+    try {
+      recognition.start();
+    } catch (e) {
+      console.error("Failed to start recognition", e);
+    }
   }, [stop]);
 
-  // Cleanup on unmount
+  // Cleanup
   useEffect(() => {
     return () => {
       if (recognitionRef.current) {
+        isIntentionalStopRef.current = true; // Ensure we don't restart on unmount
         recognitionRef.current.stop();
       }
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
   }, []);
 

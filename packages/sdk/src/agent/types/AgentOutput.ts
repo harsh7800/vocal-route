@@ -14,4 +14,5 @@ export type AgentOutput =
       type: "clarification_request";
       missing: string[];
       message: string;
+      capability?: string;
     };

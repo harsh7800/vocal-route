@@ -4,6 +4,20 @@ import { Objective, createObjective } from "./Objective";
 import { Step, createStep } from "./Step";
 import { Action } from "./Action";
 
+export interface FormField {
+  name: string;
+  label: string;
+  type: "string" | "number" | "boolean" | "select";
+  value: any;
+  required?: boolean;
+  options?: any[];
+}
+
+export interface ActiveForm {
+  capabilityId: string;
+  fields: FormField[];
+}
+
 export interface AgentUIState {
   state: AgentState;
   objective?: Objective;
@@ -12,6 +26,7 @@ export interface AgentUIState {
   waitingReason?: string;
   transcript?: string;
   proposedAction?: any;
+  activeForm?: ActiveForm;
   messages: { role: "user" | "assistant"; content: string }[];
 }
 
@@ -20,6 +35,7 @@ export class Agent {
   private currentObjective?: Objective;
   private steps: Step[] = [];
   private availableActions: Action[] = [];
+  private activeForm?: ActiveForm;
   private waitingReason?: string;
   private transcript?: string;
   private proposedAction?: any;
@@ -30,6 +46,36 @@ export class Agent {
 
   constructor() {
     this.stateMachine = new AgentStateMachine();
+  }
+
+  public setActiveForm(form: ActiveForm) {
+    this.activeForm = form;
+    this.notify();
+  }
+
+  public updateFormField(fieldName: string, value: any) {
+    if (this.activeForm) {
+      const field = this.activeForm.fields.find((f) => f.name === fieldName);
+      if (field) {
+        field.value = value;
+        this.notify();
+      }
+    }
+  }
+
+  public updateFormFieldConfig(fieldName: string, config: Partial<FormField>) {
+    if (this.activeForm) {
+      const field = this.activeForm.fields.find((f) => f.name === fieldName);
+      if (field) {
+        Object.assign(field, config);
+        this.notify();
+      }
+    }
+  }
+
+  public clearActiveForm() {
+    this.activeForm = undefined;
+    this.notify();
   }
 
   public setProposedAction(action: any) {
@@ -86,6 +132,7 @@ export class Agent {
 
     if (!isContinuation) {
       // New task: reset objective and advance turn index
+      this.activeForm = undefined;
       this.currentObjective = createObjective(input);
       this.currentTurnStartIndex = this.messages.length;
     }
@@ -142,6 +189,9 @@ export class Agent {
       objective: this.currentObjective,
       steps: [...this.steps],
       availableActions: [...this.availableActions],
+      activeForm: this.activeForm
+        ? { ...this.activeForm, fields: [...this.activeForm.fields] }
+        : undefined,
       waitingReason: this.waitingReason,
       transcript: this.transcript,
       proposedAction: this.proposedAction,
@@ -163,6 +213,7 @@ export class Agent {
     this.currentObjective = undefined;
     this.steps = [];
     this.availableActions = [];
+    this.activeForm = undefined;
     this.waitingReason = undefined;
     this.transcript = undefined;
     this.proposedAction = undefined;
