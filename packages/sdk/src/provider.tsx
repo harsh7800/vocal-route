@@ -8,7 +8,7 @@ import { VolumeVisualizer } from './audio/visualizer';
 import { BrowserTTS } from './audio/tts';
 import { staticRegistry } from './generated/registry';
 import { VocalRouteButton } from './components/VocalRouteButton';
-import { resolveLocalIntent, resolveIntent } from './ai/resolver';
+import { resolveLocalIntent,  } from './ai/resolver';
 import type { VocalIntent, RouteRegistry, VocalAIConfig } from './types';
 import { Agent, AgentUIState } from './agent/core/Agent';
 // import { AgentView } from './agent/ui/AgentView';
